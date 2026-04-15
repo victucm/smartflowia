@@ -75,28 +75,44 @@ const Index = () => {
     setErrors({});
     setLoading(true);
 
-    // Simulate processing
-    await new Promise((r) => setTimeout(r, 1500));
+    try {
+      const response = await fetch("https://hook.us2.make.com/q2vm1radsn93zaqmk3beuyi95icfjbxf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: form.nome,
+          email: form.email,
+          empresa: form.empresa,
+          tipo_solicitacao: form.tipo_solicitacao,
+          descricao: form.descricao,
+          urgencia: form.urgencia,
+        }),
+      });
 
-    const setorMap: Record<string, string> = {
-      "Atendimento ao Cliente": "SAC",
-      "Suporte Técnico": "TI",
-      Vendas: "Comercial",
-      Financeiro: "Financeiro",
-    };
+      if (!response.ok) {
+        throw new Error(`Erro do servidor: ${response.status}`);
+      }
 
-    const protocolo = `SF-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      const data = await response.json();
 
-    setResultado({
-      protocolo,
-      setor: setorMap[form.tipo_solicitacao] || "Geral",
-      status: "Em processamento",
-      mensagem: `Solicitação registrada com sucesso! Sua solicitação de "${form.tipo_solicitacao}" com urgência "${form.urgencia}" foi encaminhada ao setor ${setorMap[form.tipo_solicitacao]}. Acompanhe pelo protocolo informado.`,
-    });
+      setResultado({
+        protocolo: data.protocolo || "N/A",
+        setor: data.setor || "N/A",
+        status: data.status || "Recebido",
+        mensagem: data.mensagem || "Solicitação registrada com sucesso.",
+      });
 
-    setLoading(false);
-    toast({ title: "Solicitação enviada!", description: `Protocolo: ${protocolo}` });
-    setForm(initialForm);
+      toast({ title: "Solicitação enviada!", description: `Protocolo: ${data.protocolo || "Gerado"}` });
+      setForm(initialForm);
+    } catch (error) {
+      toast({
+        title: "Erro ao enviar",
+        description: error instanceof Error ? error.message : "Não foi possível enviar a solicitação. Tente novamente.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
