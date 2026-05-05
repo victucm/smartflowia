@@ -126,7 +126,7 @@ const TopNav = () => {
                 {error}
               </p>
             )}
-            <Button type="submit" className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold">
+            <Button type="submit" className="w-full bg-gradient-brand text-primary-foreground font-semibold">
               Entrar
             </Button>
           </form>
