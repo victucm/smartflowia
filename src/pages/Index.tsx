@@ -191,21 +191,21 @@ const Index = () => {
                 </Label>
                 <RadioGroup value={form.urgencia} onValueChange={(v) => handleChange("urgencia", v)} className="grid grid-cols-3 gap-3">
                   {[
-                    { v: "Baixa", c: "success" },
-                    { v: "Média", c: "warning" },
-                    { v: "Alta", c: "destructive" },
+                    { v: "Baixa", active: "border-success bg-success/10 text-success", dot: "bg-success" },
+                    { v: "Média", active: "border-warning bg-warning/10 text-warning", dot: "bg-warning" },
+                    { v: "Alta", active: "border-destructive bg-destructive/10 text-destructive", dot: "bg-destructive" },
                   ].map((u) => (
                     <label
                       key={u.v}
                       htmlFor={`u-${u.v}`}
                       className={`flex items-center justify-center gap-2 p-3 rounded-xl border cursor-pointer transition-all ${
                         form.urgencia === u.v
-                          ? `border-${u.c} bg-${u.c}/10 text-${u.c}`
+                          ? u.active
                           : "border-border bg-secondary/40 text-muted-foreground hover:border-primary/40"
                       }`}
                     >
                       <RadioGroupItem value={u.v} id={`u-${u.v}`} className="sr-only" />
-                      <span className={`h-2 w-2 rounded-full bg-${u.c}`} />
+                      <span className={`h-2 w-2 rounded-full ${u.dot}`} />
                       <span className="text-sm font-medium">{u.v}</span>
                     </label>
                   ))}
