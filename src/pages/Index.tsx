@@ -217,7 +217,7 @@ const Index = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:opacity-95 transition-all"
+                className="w-full h-12 bg-gradient-brand text-primary-foreground font-semibold rounded-xl shadow-glow hover:opacity-95 transition-all"
               >
                 {loading ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processando com IA...</>
