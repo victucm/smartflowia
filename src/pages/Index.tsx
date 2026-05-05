@@ -267,10 +267,11 @@ const Index = () => {
                 ) : (
                   <>
                     {resultado.protocolo && <ResField icon={Hash} label="Protocolo" value={resultado.protocolo} mono />}
-                    {resultado.categoria && <ResField icon={Tag} label="Categoria" value={resultado.categoria} />}
+                    {resultado.categoria && <ResField icon={Tag} label="Categoria Corrigida" value={resultado.categoria} />}
                     {resultado.prioridade && <ResField icon={Flame} label="Prioridade" value={resultado.prioridade} badge />}
                     {resultado.criticidade && <ResField icon={AlertTriangle} label="Criticidade" value={resultado.criticidade} badge />}
                     {resultado.acao_recomendada && <ResField icon={Lightbulb} label="Ação Recomendada" value={resultado.acao_recomendada} />}
+                    {resultado.status && <ResField icon={ShieldCheck} label="Status" value={resultado.status} badge />}
                     {resultado.mensagem && <ResField icon={MessageSquare} label="Mensagem" value={resultado.mensagem} />}
                   </>
                 )}
