@@ -91,7 +91,12 @@ const Index = () => {
       addOcorrencia({
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
-        ...form,
+        nome: form.nome,
+        email: form.email,
+        empresa: form.empresa,
+        tipo_solicitacao: form.tipo_solicitacao,
+        descricao: form.descricao,
+        urgencia: form.urgencia,
         protocolo: res.protocolo || `SF-${Date.now().toString(36).toUpperCase()}`,
         categoria: res.categoria || form.tipo_solicitacao,
         prioridade: res.prioridade || form.urgencia,
