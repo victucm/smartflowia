@@ -54,7 +54,7 @@ const TopNav = () => {
         </Link>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 rounded-full bg-secondary/60 border border-border">
+          <div className="flex items-center gap-1 p-1 rounded-full bg-secondary border border-border">
             {links.map((l) => {
               const active = pathname === l.to;
               const Icon = l.icon;
@@ -65,7 +65,7 @@ const TopNav = () => {
                   className={cn(
                     "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all",
                     active
-                      ? "bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30"
+                      ? "bg-gradient-brand text-primary-foreground shadow-glow"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -76,13 +76,24 @@ const TopNav = () => {
             })}
           </div>
 
+          <Button
+            onClick={toggle}
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+            aria-label="Alternar tema"
+            title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
           {authed ? (
             <Button onClick={handleLogout} variant="outline" size="sm" className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sair</span>
             </Button>
           ) : (
-            <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30">
+            <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-brand text-primary-foreground shadow-glow hover:opacity-95">
               <Lock className="h-4 w-4" />
               <span className="hidden sm:inline">Login Admin</span>
             </Button>
