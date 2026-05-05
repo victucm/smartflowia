@@ -41,15 +41,15 @@ const TopNav = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border">
+    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="relative h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center animate-pulse-glow">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          <div className="relative h-9 w-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow">
+            <Sparkles className="h-4.5 w-4.5 text-primary-foreground" />
           </div>
           <div className="leading-tight">
-            <p className="font-bold tracking-tight text-foreground">SmartFlow <span className="text-neon">IA</span></p>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground hidden sm:block">Intelligent Hub</p>
+            <p className="font-semibold tracking-tight text-foreground">SmartFlow <span className="text-gradient">IA</span></p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground hidden sm:block">Gestão Inteligente</p>
           </div>
         </Link>
 
