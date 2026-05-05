@@ -12,6 +12,7 @@ import { useTheme } from "@/lib/theme";
 const TopNav = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
