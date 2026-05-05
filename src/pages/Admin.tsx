@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Navigate } from "react-router-dom";
 import TopNav from "@/components/TopNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,8 +12,11 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { isAdminAuthed } from "@/lib/auth";
 
 const Admin = () => {
+  useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
+  if (!isAdminAuthed()) return <Navigate to="/" replace />;
   const [items, setItems] = useState<Ocorrencia[]>(() => getOcorrencias());
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState("Todas");
