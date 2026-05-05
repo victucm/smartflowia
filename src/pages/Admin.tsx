@@ -15,8 +15,8 @@ import {
 import { isAdminAuthed } from "@/lib/auth";
 
 const Admin = () => {
-  if (!isAdminAuthed()) return <Navigate to="/" replace />;
   useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
+  if (!isAdminAuthed()) return <Navigate to="/" replace />;
   const [items, setItems] = useState<Ocorrencia[]>(() => getOcorrencias());
   const [q, setQ] = useState("");
   const [filtro, setFiltro] = useState("Todas");
