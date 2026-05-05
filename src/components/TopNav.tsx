@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Activity, LayoutDashboard, Lock, LogOut, Shield, Sparkles } from "lucide-react";
+import { Activity, LayoutDashboard, Lock, LogOut, Moon, Shield, Sparkles, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isAdminAuthed, loginAdmin, logoutAdmin } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 
 const TopNav = () => {
   const { pathname } = useLocation();
