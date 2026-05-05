@@ -127,16 +127,18 @@ const Index = () => {
 
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 grid-pattern opacity-30 pointer-events-none" />
-        <div className="absolute -top-32 left-1/2 -translate-x-1/2 h-96 w-[600px] rounded-full bg-primary/20 blur-[120px] pointer-events-none" />
+        <div className="absolute inset-0 grid-pattern opacity-40 pointer-events-none" />
+        <div className="absolute -top-40 left-[15%] h-80 w-80 rounded-full bg-primary/30 blur-[120px] pointer-events-none animate-float-orb" />
+        <div className="absolute -top-20 right-[10%] h-72 w-72 rounded-full bg-accent/30 blur-[120px] pointer-events-none animate-float-orb" style={{ animationDelay: "2s" }} />
+        <div className="absolute top-40 left-1/2 -translate-x-1/2 h-64 w-[500px] rounded-full bg-neon/20 blur-[120px] pointer-events-none" />
         <div className="relative max-w-5xl mx-auto px-4 pt-16 pb-10 text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/70 border border-border text-xs uppercase tracking-widest text-muted-foreground mb-5">
-            <Cpu className="h-3 w-3 text-neon" /> Powered by AI
+            <Cpu className="h-3 w-3 text-neon" /> Powered by AI · Realtime Engine
           </div>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-3">
-            SmartFlow <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">IA</span>
+          <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4">
+            SmartFlow <span className="text-gradient">IA</span>
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground font-medium">
+          <p className="text-lg md:text-xl text-foreground/90 font-medium">
             Ecossistema Inteligente de Gestão de Solicitações
           </p>
           <p className="mt-3 text-sm text-muted-foreground max-w-2xl mx-auto">
@@ -265,10 +267,11 @@ const Index = () => {
                 ) : (
                   <>
                     {resultado.protocolo && <ResField icon={Hash} label="Protocolo" value={resultado.protocolo} mono />}
-                    {resultado.categoria && <ResField icon={Tag} label="Categoria" value={resultado.categoria} />}
+                    {resultado.categoria && <ResField icon={Tag} label="Categoria Corrigida" value={resultado.categoria} />}
                     {resultado.prioridade && <ResField icon={Flame} label="Prioridade" value={resultado.prioridade} badge />}
                     {resultado.criticidade && <ResField icon={AlertTriangle} label="Criticidade" value={resultado.criticidade} badge />}
                     {resultado.acao_recomendada && <ResField icon={Lightbulb} label="Ação Recomendada" value={resultado.acao_recomendada} />}
+                    {resultado.status && <ResField icon={ShieldCheck} label="Status" value={resultado.status} badge />}
                     {resultado.mensagem && <ResField icon={MessageSquare} label="Mensagem" value={resultado.mensagem} />}
                   </>
                 )}
