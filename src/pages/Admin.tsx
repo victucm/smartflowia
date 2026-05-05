@@ -175,19 +175,27 @@ const Admin = () => {
   );
 };
 
-const StatCard = ({ icon: Icon, label, value, color }: any) => (
-  <Card className="glass-card rounded-2xl">
-    <CardContent className="p-5 flex items-center gap-4">
-      <div className={`h-12 w-12 rounded-xl bg-${color}/10 border border-${color}/30 flex items-center justify-center`}>
-        <Icon className={`h-5 w-5 text-${color}`} />
-      </div>
-      <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold">{value}</p>
-      </div>
-    </CardContent>
-  </Card>
-);
+const StatCard = ({ icon: Icon, label, value, color }: any) => {
+  const colors: Record<string, string> = {
+    primary: "bg-primary/10 border-primary/30 text-neon",
+    destructive: "bg-destructive/10 border-destructive/40 text-destructive",
+    warning: "bg-warning/10 border-warning/40 text-warning",
+    success: "bg-success/10 border-success/40 text-success",
+  };
+  return (
+    <Card className="glass-card rounded-2xl">
+      <CardContent className="p-5 flex items-center gap-4">
+        <div className={`h-12 w-12 rounded-xl border flex items-center justify-center ${colors[color]}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold">{value}</p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const PriorityBadge = ({ value }: { value: string }) => {
   const map: Record<string, string> = {
