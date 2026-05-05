@@ -128,12 +128,11 @@ const Index = () => {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 grid-pattern opacity-40 pointer-events-none" />
-        <div className="absolute -top-40 left-[15%] h-80 w-80 rounded-full bg-primary/30 blur-[120px] pointer-events-none animate-float-orb" />
-        <div className="absolute -top-20 right-[10%] h-72 w-72 rounded-full bg-accent/30 blur-[120px] pointer-events-none animate-float-orb" style={{ animationDelay: "2s" }} />
-        <div className="absolute top-40 left-1/2 -translate-x-1/2 h-64 w-[500px] rounded-full bg-neon/20 blur-[120px] pointer-events-none" />
+        <div className="absolute -top-40 left-[15%] h-80 w-80 rounded-full bg-primary/15 blur-[120px] pointer-events-none" />
+        <div className="absolute -top-20 right-[10%] h-72 w-72 rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
         <div className="relative max-w-5xl mx-auto px-4 pt-16 pb-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary/70 border border-border text-xs uppercase tracking-widest text-muted-foreground mb-5">
-            <Cpu className="h-3 w-3 text-neon" /> Powered by AI · Realtime Engine
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-secondary border border-border text-xs uppercase tracking-widest text-muted-foreground mb-5">
+            <Cpu className="h-3 w-3 text-primary" /> Powered by AI
           </div>
           <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-4">
             SmartFlow <span className="text-gradient">IA</span>
@@ -218,7 +217,7 @@ const Index = () => {
               <Button
                 type="submit"
                 disabled={loading}
-                className="w-full h-12 bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold rounded-xl shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:opacity-95 transition-all"
+                className="w-full h-12 bg-gradient-brand text-primary-foreground font-semibold rounded-xl shadow-glow hover:opacity-95 transition-all"
               >
                 {loading ? (
                   <><Loader2 className="h-4 w-4 animate-spin" /> Processando com IA...</>

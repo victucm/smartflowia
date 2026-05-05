@@ -1,16 +1,18 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Activity, LayoutDashboard, Lock, LogOut, Shield, Sparkles } from "lucide-react";
+import { Activity, LayoutDashboard, Lock, LogOut, Moon, Shield, Sparkles, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { isAdminAuthed, loginAdmin, logoutAdmin } from "@/lib/auth";
+import { useTheme } from "@/lib/theme";
 
 const TopNav = () => {
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState("");
   const [pass, setPass] = useState("");
@@ -39,20 +41,20 @@ const TopNav = () => {
   };
 
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/70 border-b border-border">
+    <nav className="sticky top-0 z-50 backdrop-blur-xl bg-background/80 border-b border-border">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between gap-3">
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="relative h-9 w-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center animate-pulse-glow">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          <div className="relative h-9 w-9 rounded-xl bg-gradient-brand flex items-center justify-center shadow-glow">
+            <Sparkles className="h-4.5 w-4.5 text-primary-foreground" />
           </div>
           <div className="leading-tight">
-            <p className="font-bold tracking-tight text-foreground">SmartFlow <span className="text-neon">IA</span></p>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground hidden sm:block">Intelligent Hub</p>
+            <p className="font-semibold tracking-tight text-foreground">SmartFlow <span className="text-gradient">IA</span></p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground hidden sm:block">Gestão Inteligente</p>
           </div>
         </Link>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 p-1 rounded-full bg-secondary/60 border border-border">
+          <div className="flex items-center gap-1 p-1 rounded-full bg-secondary border border-border">
             {links.map((l) => {
               const active = pathname === l.to;
               const Icon = l.icon;
@@ -63,7 +65,7 @@ const TopNav = () => {
                   className={cn(
                     "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-medium transition-all",
                     active
-                      ? "bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30"
+                      ? "bg-gradient-brand text-primary-foreground shadow-glow"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -74,13 +76,24 @@ const TopNav = () => {
             })}
           </div>
 
+          <Button
+            onClick={toggle}
+            variant="outline"
+            size="icon"
+            className="rounded-full"
+            aria-label="Alternar tema"
+            title={theme === "dark" ? "Modo claro" : "Modo escuro"}
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </Button>
+
           {authed ? (
             <Button onClick={handleLogout} variant="outline" size="sm" className="border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive">
               <LogOut className="h-4 w-4" />
               <span className="hidden sm:inline">Sair</span>
             </Button>
           ) : (
-            <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-lg shadow-primary/30">
+            <Button onClick={() => setOpen(true)} size="sm" className="bg-gradient-brand text-primary-foreground shadow-glow hover:opacity-95">
               <Lock className="h-4 w-4" />
               <span className="hidden sm:inline">Login Admin</span>
             </Button>
@@ -113,7 +126,7 @@ const TopNav = () => {
                 {error}
               </p>
             )}
-            <Button type="submit" className="w-full bg-gradient-to-r from-primary to-accent text-primary-foreground font-semibold">
+            <Button type="submit" className="w-full bg-gradient-brand text-primary-foreground font-semibold">
               Entrar
             </Button>
           </form>
