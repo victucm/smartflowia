@@ -67,7 +67,7 @@ const Index = () => {
     setErrors({});
     setLoading(true);
     try {
-      const response = await fetch("https://hook.us2.make.com/q2vm1radsn93zaqmk3beuyi95icfjbxf", {
+      const response = await fetch("https://hook.us2.make.com/tcbp1x7t3vcetiirte4eu3kg73hfs2m7", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(form),
