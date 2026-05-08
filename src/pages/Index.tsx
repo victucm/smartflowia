@@ -67,10 +67,19 @@ const Index = () => {
     setErrors({});
     setLoading(true);
     try {
+      const payload = {
+        nome: form.nome,
+        email: form.email,
+        empresa: form.empresa,
+        tipo_solicitacao: form.tipo_solicitacao,
+        descricao: form.descricao,
+        urgencia: form.urgencia,
+      };
+      console.log("[SmartFlow] Enviando para Make:", JSON.stringify(payload, null, 2));
       const response = await fetch("https://hook.us2.make.com/tcbp1x7t3vcetiirte4eu3kg73hfs2m7", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error(`Erro ${response.status}`);
       const text = await response.text();
