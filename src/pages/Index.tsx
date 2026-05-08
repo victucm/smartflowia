@@ -67,10 +67,19 @@ const Index = () => {
     setErrors({});
     setLoading(true);
     try {
+      const payload = {
+        nome: form.nome,
+        email: form.email,
+        empresa: form.empresa,
+        tipo_solicitacao: form.tipo_solicitacao,
+        descricao: form.descricao,
+        urgencia: form.urgencia,
+      };
+      console.log("[SmartFlow] Enviando para Make:", JSON.stringify(payload, null, 2));
       const response = await fetch("https://hook.us2.make.com/tcbp1x7t3vcetiirte4eu3kg73hfs2m7", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) throw new Error(`Erro ${response.status}`);
       const text = await response.text();
@@ -109,9 +118,10 @@ const Index = () => {
       toast({ title: "Solicitação enviada com sucesso!", description: res.protocolo ? `Protocolo ${res.protocolo}` : undefined });
       setForm(initialForm);
     } catch (err) {
+      console.error("[SmartFlow] Falha no envio:", err);
       toast({
-        title: "Falha no envio",
-        description: err instanceof Error ? err.message : "Tente novamente em instantes.",
+        title: "Erro",
+        description: "Erro ao enviar solicitação. Tente novamente.",
         variant: "destructive",
       });
     } finally {
