@@ -304,6 +304,7 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
           <Section icon={Hash} title="Dados do Sistema">
             <Field label="Protocolo" value={chamado.protocolo} mono />
             <Field label="Data / Hora" value={chamado.data_hora} />
+            <Field label="Responsável" value={chamado.responsavel} />
           </Section>
         </div>
       )}
