@@ -40,6 +40,25 @@ interface Chamado {
 
 const norm = (s?: string) => (s || "").toLowerCase().trim();
 
+const FIELD_MAP = [
+  "protocolo", "data_hora", "nome", "email", "empresa",
+  "tipo_informado", "descricao", "urgencia",
+  "categoria_ia", "prioridade_ia", "criticidade_ia",
+  "acao_recomendada", "mensagem_ia", "status", "responsavel",
+];
+
+const mapChamado = (raw: any): Chamado => {
+  if (!raw || typeof raw !== "object") return {};
+  const hasNumeric = FIELD_MAP.some((_, i) => raw[String(i)] !== undefined || raw[i] !== undefined);
+  if (!hasNumeric) return raw as Chamado;
+  const out: Chamado = { ...raw };
+  FIELD_MAP.forEach((key, i) => {
+    const v = raw[String(i)] ?? raw[i];
+    if (v !== undefined && out[key] === undefined) out[key] = v;
+  });
+  return out;
+};
+
 const Admin = () => {
   useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
   if (!isAdminAuthed()) return <Navigate to="/" replace />;
@@ -66,10 +85,11 @@ const Admin = () => {
       const text = await res.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch { data = {}; }
-      const list: Chamado[] = Array.isArray(data)
+      const rawList: any[] = Array.isArray(data)
         ? data
         : (data.chamados || data.data || data.items || []);
-      setItems((list || []).filter(Boolean));
+      const list: Chamado[] = (rawList || []).filter(Boolean).map(mapChamado);
+      setItems(list);
     } catch (e) {
       setError("Não foi possível carregar os chamados. Tente novamente.");
       setItems([]);
@@ -284,6 +304,7 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
           <Section icon={Hash} title="Dados do Sistema">
             <Field label="Protocolo" value={chamado.protocolo} mono />
             <Field label="Data / Hora" value={chamado.data_hora} />
+            <Field label="Responsável" value={chamado.responsavel} />
           </Section>
         </div>
       )}
