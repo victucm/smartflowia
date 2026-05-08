@@ -57,7 +57,11 @@ const Admin = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(WEBHOOK_URL, { method: "GET" });
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ acao: "buscar_chamados" }),
+      });
       if (!res.ok) throw new Error("Falha ao buscar");
       const text = await res.text();
       let data: any = {};
