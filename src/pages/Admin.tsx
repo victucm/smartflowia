@@ -66,10 +66,11 @@ const Admin = () => {
       const text = await res.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch { data = {}; }
-      const list: Chamado[] = Array.isArray(data)
+      const rawList: any[] = Array.isArray(data)
         ? data
         : (data.chamados || data.data || data.items || []);
-      setItems((list || []).filter(Boolean));
+      const list: Chamado[] = (rawList || []).filter(Boolean).map(mapChamado);
+      setItems(list);
     } catch (e) {
       setError("Não foi possível carregar os chamados. Tente novamente.");
       setItems([]);
