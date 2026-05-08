@@ -118,9 +118,10 @@ const Index = () => {
       toast({ title: "Solicitação enviada com sucesso!", description: res.protocolo ? `Protocolo ${res.protocolo}` : undefined });
       setForm(initialForm);
     } catch (err) {
+      console.error("[SmartFlow] Falha no envio:", err);
       toast({
-        title: "Falha no envio",
-        description: err instanceof Error ? err.message : "Tente novamente em instantes.",
+        title: "Erro",
+        description: "Erro ao enviar solicitação. Tente novamente.",
         variant: "destructive",
       });
     } finally {
