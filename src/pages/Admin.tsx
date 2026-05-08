@@ -5,12 +5,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Activity, AlertTriangle, CheckCircle2, Search, Inbox, TrendingUp, Filter,
-  RefreshCw, ShieldAlert, Flame, Loader2,
+  Activity, AlertTriangle, CheckCircle2, Search, Inbox, Filter,
+  RefreshCw, ShieldAlert, Flame, Loader2, Eye, User, FileText, Sparkles, Hash,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { isAdminAuthed } from "@/lib/auth";
 
 const WEBHOOK_URL = "https://hook.us2.make.com/na0o7yw4o96qgxdhqg1ycndv1tnruazl";
@@ -19,16 +22,23 @@ interface Chamado {
   protocolo?: string;
   data_hora?: string;
   nome?: string;
-  empresa?: string;
   email?: string;
+  empresa?: string;
+  tipo_solicitacao?: string;
   tipo_informado?: string;
+  descricao?: string;
+  urgencia?: string;
   categoria_ia?: string;
   prioridade_ia?: string;
   criticidade_ia?: string;
   acao_recomendada?: string;
   status?: string;
+  mensagem_ia?: string;
+  mensagem?: string;
   [k: string]: any;
 }
+
+const norm = (s?: string) => (s || "").toLowerCase().trim();
 
 const Admin = () => {
   useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
@@ -41,6 +51,7 @@ const Admin = () => {
   const [fPrio, setFPrio] = useState("Todas");
   const [fCrit, setFCrit] = useState("Todas");
   const [fStatus, setFStatus] = useState("Todos");
+  const [selected, setSelected] = useState<Chamado | null>(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -49,11 +60,13 @@ const Admin = () => {
       const res = await fetch(WEBHOOK_URL, { method: "GET" });
       if (!res.ok) throw new Error("Falha ao buscar");
       const text = await res.text();
-      let data: any = [];
-      try { data = JSON.parse(text); } catch { data = []; }
-      const list: Chamado[] = Array.isArray(data) ? data : (data.chamados || data.data || data.items || [data]);
-      setItems(list.filter(Boolean));
-    } catch (e: any) {
+      let data: any = {};
+      try { data = JSON.parse(text); } catch { data = {}; }
+      const list: Chamado[] = Array.isArray(data)
+        ? data
+        : (data.chamados || data.data || data.items || []);
+      setItems((list || []).filter(Boolean));
+    } catch (e) {
       setError("Não foi possível carregar os chamados. Tente novamente.");
       setItems([]);
     } finally {
@@ -65,19 +78,21 @@ const Admin = () => {
 
   const filtered = useMemo(() => {
     return items.filter((o) => {
-      const matchQ = !q || [o.protocolo, o.nome, o.empresa].filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase());
-      const matchP = fPrio === "Todas" || (o.prioridade_ia || "").toLowerCase() === fPrio.toLowerCase();
-      const matchC = fCrit === "Todas" || (o.criticidade_ia || "").toLowerCase() === fCrit.toLowerCase();
-      const matchS = fStatus === "Todos" || (o.status || "").toLowerCase() === fStatus.toLowerCase();
+      const matchQ = !q || [o.protocolo, o.nome, o.empresa, o.email]
+        .filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase());
+      const matchP = fPrio === "Todas" || norm(o.prioridade_ia) === norm(fPrio);
+      const matchC = fCrit === "Todas" || norm(o.criticidade_ia) === norm(fCrit);
+      const matchS = fStatus === "Todos" || norm(o.status) === norm(fStatus);
       return matchQ && matchP && matchC && matchS;
     });
   }, [items, q, fPrio, fCrit, fStatus]);
 
   const stats = useMemo(() => ({
     total: items.length,
-    criticos: items.filter((i) => (i.criticidade_ia || "").toLowerCase() === "crítica" || (i.criticidade_ia || "").toLowerCase() === "critica").length,
-    altas: items.filter((i) => (i.prioridade_ia || "").toLowerCase() === "alta").length,
-    recebidos: items.filter((i) => (i.status || "").toLowerCase() === "recebido" || (i.status || "").toLowerCase() === "recebidos").length,
+    criticos: items.filter((i) => ["crítica", "critica"].includes(norm(i.criticidade_ia))).length,
+    altas: items.filter((i) => norm(i.prioridade_ia) === "alta").length,
+    recebidos: items.filter((i) => norm(i.status) === "recebido").length,
+    analise: items.filter((i) => ["em análise", "em analise"].includes(norm(i.status))).length,
   }), [items]);
 
   return (
@@ -101,19 +116,22 @@ const Admin = () => {
       </section>
 
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={Inbox} label="Total de Chamados" value={stats.total} tone="primary" />
-          <StatCard icon={Flame} label="Chamados Críticos" value={stats.criticos} tone="critical" />
+        {/* Summary cards */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          <StatCard icon={Inbox} label="Total" value={stats.total} tone="primary" />
+          <StatCard icon={Flame} label="Críticos" value={stats.criticos} tone="critical" />
           <StatCard icon={ShieldAlert} label="Alta Prioridade" value={stats.altas} tone="high" />
-          <StatCard icon={CheckCircle2} label="Recebidos" value={stats.recebidos} tone="success" />
+          <StatCard icon={CheckCircle2} label="Recebidos" value={stats.recebidos} tone="info" />
+          <StatCard icon={Activity} label="Em Análise" value={stats.analise} tone="purple" />
         </div>
 
+        {/* Filters */}
         <Card className="glass-card rounded-2xl">
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
             <div className="relative md:col-span-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar protocolo, nome, empresa..."
+                placeholder="Buscar protocolo, nome, empresa, email..."
                 className="pl-9"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -123,6 +141,7 @@ const Admin = () => {
               <SelectTrigger><Filter className="h-4 w-4" /><SelectValue placeholder="Prioridade" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todas">Todas as prioridades</SelectItem>
+                <SelectItem value="Crítica">Crítica</SelectItem>
                 <SelectItem value="Alta">Alta</SelectItem>
                 <SelectItem value="Média">Média</SelectItem>
                 <SelectItem value="Baixa">Baixa</SelectItem>
@@ -143,20 +162,21 @@ const Admin = () => {
               <SelectContent>
                 <SelectItem value="Todos">Todos os status</SelectItem>
                 <SelectItem value="Recebido">Recebido</SelectItem>
-                <SelectItem value="Em andamento">Em andamento</SelectItem>
-                <SelectItem value="Concluído">Concluído</SelectItem>
+                <SelectItem value="Em análise">Em análise</SelectItem>
+                <SelectItem value="Resolvido">Resolvido</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
         </Card>
 
+        {/* List */}
         <Card className="glass-card rounded-2xl overflow-hidden">
           <CardHeader className="border-b border-border/60">
             <CardTitle className="flex items-center gap-2 text-lg">
               <Activity className="h-5 w-5 text-primary" /> Ocorrências ({filtered.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className="p-4">
             {loading ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin" />
@@ -174,54 +194,125 @@ const Admin = () => {
                 <p className="text-sm">Nenhum chamado encontrado.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-widest text-muted-foreground border-b border-border/60">
-                      <th className="px-4 py-3">Protocolo</th>
-                      <th className="px-4 py-3">Data/Hora</th>
-                      <th className="px-4 py-3">Nome</th>
-                      <th className="px-4 py-3 hidden md:table-cell">Empresa</th>
-                      <th className="px-4 py-3 hidden lg:table-cell">Tipo Informado</th>
-                      <th className="px-4 py-3 hidden lg:table-cell">Categoria IA</th>
-                      <th className="px-4 py-3">Prioridade</th>
-                      <th className="px-4 py-3">Criticidade</th>
-                      <th className="px-4 py-3 hidden xl:table-cell">Ação Recomendada</th>
-                      <th className="px-4 py-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map((o, idx) => (
-                      <tr key={o.protocolo || idx} className="border-b border-border/40 hover:bg-primary/5 transition-colors">
-                        <td className="px-4 py-3 font-mono text-primary text-xs">{o.protocolo || "—"}</td>
-                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{o.data_hora || "—"}</td>
-                        <td className="px-4 py-3">{o.nome || "—"}</td>
-                        <td className="px-4 py-3 hidden md:table-cell text-muted-foreground">{o.empresa || "—"}</td>
-                        <td className="px-4 py-3 hidden lg:table-cell text-muted-foreground">{o.tipo_informado || "—"}</td>
-                        <td className="px-4 py-3 hidden lg:table-cell">{o.categoria_ia || "—"}</td>
-                        <td className="px-4 py-3"><LevelBadge value={o.prioridade_ia} /></td>
-                        <td className="px-4 py-3"><LevelBadge value={o.criticidade_ia} /></td>
-                        <td className="px-4 py-3 hidden xl:table-cell text-xs max-w-xs truncate" title={o.acao_recomendada}>{o.acao_recomendada || "—"}</td>
-                        <td className="px-4 py-3 text-xs">{o.status || "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="space-y-3">
+                {filtered.map((o, idx) => (
+                  <ChamadoRow key={o.protocolo || idx} chamado={o} onView={() => setSelected(o)} />
+                ))}
               </div>
             )}
           </CardContent>
         </Card>
       </main>
+
+      <DetailsDialog chamado={selected} onClose={() => setSelected(null)} />
     </div>
   );
 };
+
+const ChamadoRow = ({ chamado: o, onView }: { chamado: Chamado; onView: () => void }) => (
+  <div className="group rounded-xl border border-border/60 bg-card/50 hover:bg-card hover:shadow-md hover:border-primary/40 transition-all p-4">
+    <div className="grid grid-cols-12 gap-3 items-center">
+      <div className="col-span-12 md:col-span-2">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Protocolo</p>
+        <p className="font-mono text-primary text-sm font-semibold truncate">{o.protocolo || "—"}</p>
+        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{o.data_hora || "—"}</p>
+      </div>
+      <div className="col-span-12 md:col-span-3">
+        <p className="text-sm font-medium truncate">{o.nome || "—"}</p>
+        <p className="text-xs text-muted-foreground truncate">{o.empresa || "—"}</p>
+      </div>
+      <div className="col-span-6 md:col-span-2">
+        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Categoria</p>
+        <p className="text-sm truncate">{o.categoria_ia || "—"}</p>
+      </div>
+      <div className="col-span-6 md:col-span-3 flex flex-wrap gap-1.5">
+        <LevelBadge value={o.prioridade_ia} kind="prio" />
+        <LevelBadge value={o.criticidade_ia} kind="crit" />
+        <StatusBadge value={o.status} />
+      </div>
+      <div className="col-span-12 md:col-span-2 flex md:justify-end">
+        <Button size="sm" variant="outline" onClick={onView} className="w-full md:w-auto">
+          <Eye className="h-4 w-4" /> Ver detalhes
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
+const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose: () => void }) => (
+  <Dialog open={!!chamado} onOpenChange={(o) => !o && onClose()}>
+    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <FileText className="h-5 w-5 text-primary" />
+          Detalhes do Chamado
+        </DialogTitle>
+        <DialogDescription className="font-mono text-primary">
+          {chamado?.protocolo || "—"}
+        </DialogDescription>
+      </DialogHeader>
+
+      {chamado && (
+        <div className="space-y-5 mt-2">
+          <Section icon={User} title="Dados do Cliente">
+            <Field label="Nome" value={chamado.nome} />
+            <Field label="Email" value={chamado.email} />
+            <Field label="Empresa" value={chamado.empresa} />
+          </Section>
+
+          <Section icon={FileText} title="Solicitação Enviada">
+            <Field label="Tipo de Solicitação" value={chamado.tipo_solicitacao || chamado.tipo_informado} />
+            <Field label="Urgência" value={chamado.urgencia} />
+            <Field label="Descrição" value={chamado.descricao} full />
+          </Section>
+
+          <Section icon={Sparkles} title="Análise da IA">
+            <div className="col-span-2 flex flex-wrap gap-2 mb-2">
+              <LevelBadge value={chamado.prioridade_ia} kind="prio" />
+              <LevelBadge value={chamado.criticidade_ia} kind="crit" />
+              <StatusBadge value={chamado.status} />
+            </div>
+            <Field label="Categoria IA" value={chamado.categoria_ia} />
+            <Field label="Ação Recomendada" value={chamado.acao_recomendada} full />
+            <Field label="Mensagem da IA" value={chamado.mensagem_ia || chamado.mensagem} full />
+          </Section>
+
+          <Section icon={Hash} title="Dados do Sistema">
+            <Field label="Protocolo" value={chamado.protocolo} mono />
+            <Field label="Data / Hora" value={chamado.data_hora} />
+          </Section>
+        </div>
+      )}
+    </DialogContent>
+  </Dialog>
+);
+
+const Section = ({ icon: Icon, title, children }: any) => (
+  <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
+    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/60">
+      <Icon className="h-4 w-4 text-primary" />
+      <h3 className="text-sm font-semibold uppercase tracking-wider">{title}</h3>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
+  </div>
+);
+
+const Field = ({ label, value, full, mono }: { label: string; value?: string; full?: boolean; mono?: boolean }) => (
+  <div className={full ? "sm:col-span-2" : ""}>
+    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
+    <p className={`text-sm ${mono ? "font-mono text-primary" : ""} whitespace-pre-wrap break-words`}>
+      {value || "—"}
+    </p>
+  </div>
+);
 
 const StatCard = ({ icon: Icon, label, value, tone }: any) => {
   const tones: Record<string, string> = {
     primary: "bg-primary/10 border-primary/30 text-primary",
     critical: "bg-red-500/10 border-red-500/40 text-red-500",
     high: "bg-orange-500/10 border-orange-500/40 text-orange-500",
-    success: "bg-emerald-500/10 border-emerald-500/40 text-emerald-500",
+    info: "bg-blue-500/10 border-blue-500/40 text-blue-500",
+    purple: "bg-purple-500/10 border-purple-500/40 text-purple-500",
   };
   return (
     <Card className="glass-card rounded-2xl">
@@ -238,16 +329,31 @@ const StatCard = ({ icon: Icon, label, value, tone }: any) => {
   );
 };
 
-const LevelBadge = ({ value }: { value?: string }) => {
-  const v = (value || "").toLowerCase();
+const LevelBadge = ({ value, kind }: { value?: string; kind?: "prio" | "crit" }) => {
+  const v = norm(value);
   let cls = "bg-secondary text-muted-foreground border-border";
-  if (v === "crítica" || v === "critica") cls = "bg-red-500/15 text-red-500 border-red-500/40";
-  else if (v === "alta") cls = "bg-orange-500/15 text-orange-500 border-orange-500/40";
-  else if (v === "média" || v === "media") cls = "bg-yellow-500/15 text-yellow-500 border-yellow-500/40";
-  else if (v === "baixa") cls = "bg-emerald-500/15 text-emerald-500 border-emerald-500/40";
+  if (v === "crítica" || v === "critica") cls = "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/40";
+  else if (v === "alta") cls = "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/40";
+  else if (v === "média" || v === "media") cls = "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/40";
+  else if (v === "baixa") cls = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40";
+  if (!value) return null;
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cls}`}>
-      {value || "—"}
+      {kind === "prio" ? "Prio: " : kind === "crit" ? "Crit: " : ""}{value}
+    </span>
+  );
+};
+
+const StatusBadge = ({ value }: { value?: string }) => {
+  const v = norm(value);
+  let cls = "bg-secondary text-muted-foreground border-border";
+  if (v === "recebido") cls = "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/40";
+  else if (v === "em análise" || v === "em analise") cls = "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/40";
+  else if (v === "resolvido" || v === "concluído" || v === "concluido") cls = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40";
+  if (!value) return null;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cls}`}>
+      {value}
     </span>
   );
 };
