@@ -17,7 +17,7 @@ import {
 import { isAdminAuthed } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 
-const WEBHOOK_URL = "https://victucm.app.n8n.cloud/webhook-test/buscar-chamados";
+const WEBHOOK_URL = "https://victucm.app.n8n.cloud/webhook/buscar-chamados";
 
 interface Chamado {
   protocolo?: string;

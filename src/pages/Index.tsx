@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import TopNav from "@/components/TopNav";
 
-const WEBHOOK_URL = "https://victucm.app.n8n.cloud/webhook-test/receber-chamado";
+const WEBHOOK_URL = "https://victucm.app.n8n.cloud/webhook/receber-chamado";
 
 const TIPOS = [
   "Suporte Técnico", "TI / Infraestrutura", "Financeiro", "Comercial / Vendas",
