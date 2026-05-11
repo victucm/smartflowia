@@ -1,69 +1,97 @@
 import { useEffect, useMemo, useState } from "react";
 import { Navigate } from "react-router-dom";
 import TopNav from "@/components/TopNav";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
-  Activity, AlertTriangle, CheckCircle2, Search, Inbox, Filter,
-  RefreshCw, ShieldAlert, Flame, Loader2, Eye, User, FileText, Sparkles, Hash,
+  Activity, AlertTriangle, CheckCircle2, Search, Inbox, RefreshCw,
+  ShieldAlert, Flame, Loader2, Eye, Copy, Clock, Sparkles, X, ArrowUpRight, Layers,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { isAdminAuthed } from "@/lib/auth";
+import { useToast } from "@/hooks/use-toast";
 
-const WEBHOOK_URL = "https://hook.us2.make.com/na0o7yw4o96qgxdhqg1ycndv1tnruazl";
+const WEBHOOK_URL = "https://victucm.app.n8n.cloud/webhook-test/buscar-chamados";
 
 interface Chamado {
   protocolo?: string;
-  data_hora?: string;
+  data_hora_br?: string;
   nome?: string;
   email?: string;
   empresa?: string;
   tipo_solicitacao?: string;
-  tipo_informado?: string;
   descricao?: string;
   urgencia?: string;
   categoria_ia?: string;
   prioridade_ia?: string;
   criticidade_ia?: string;
+  complexidade_estimada?: string;
   acao_recomendada?: string;
-  status?: string;
   mensagem_ia?: string;
-  mensagem?: string;
-  [k: string]: any;
+  status?: string;
+  resumo_executivo?: string;
+  sentimento_cliente?: string;
+  tags?: string;
+  sla_label?: string;
+  prazo_atendimento?: string;
+  requer_escalonamento?: string;
+  responsavel?: string;
+}
+
+interface Metricas {
+  total?: number; criticos?: number; alta_prioridade?: number;
+  recebidos?: number; em_analise?: number; resolvidos?: number;
+  bloqueantes?: number; escalonamentos?: number;
 }
 
 const norm = (s?: string) => (s || "").toLowerCase().trim();
 
-const FIELD_MAP = [
-  "protocolo", "data_hora", "nome", "email", "empresa",
-  "tipo_informado", "descricao", "urgencia",
-  "categoria_ia", "prioridade_ia", "criticidade_ia",
-  "acao_recomendada", "mensagem_ia", "status", "responsavel",
-];
-
-const mapChamado = (raw: any): Chamado => {
-  if (!raw || typeof raw !== "object") return {};
-  const hasNumeric = FIELD_MAP.some((_, i) => raw[String(i)] !== undefined || raw[i] !== undefined);
-  if (!hasNumeric) return raw as Chamado;
-  const out: Chamado = { ...raw };
-  FIELD_MAP.forEach((key, i) => {
-    const v = raw[String(i)] ?? raw[i];
-    if (v !== undefined && out[key] === undefined) out[key] = v;
-  });
-  return out;
+const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 30000) => {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeout);
+  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
 };
+
+const prioCls = (v?: string) => {
+  const x = norm(v);
+  if (x.startsWith("crít") || x.startsWith("crit")) return "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/40";
+  if (x === "alta") return "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/40";
+  if (x.startsWith("méd") || x.startsWith("med")) return "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:border-yellow-500/40";
+  if (x === "baixa") return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/40";
+  return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
+};
+const critCls = (v?: string) => {
+  const x = norm(v);
+  if (x.startsWith("bloque")) return "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/40";
+  if (x === "alto") return "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/40";
+  if (x.startsWith("méd") || x.startsWith("med")) return "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/40";
+  if (x === "baixo") return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/40";
+  return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
+};
+const statusCls = (v?: string) => {
+  const x = norm(v);
+  if (x === "recebido") return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/40";
+  if (x === "em análise" || x === "em analise") return "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/40";
+  if (x === "resolvido") return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/40";
+  return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
+};
+
+const Badge = ({ className = "", children }: { className?: string; children: React.ReactNode }) => (
+  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${className}`}>{children}</span>
+);
 
 const Admin = () => {
   useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
   if (!isAdminAuthed()) return <Navigate to="/" replace />;
 
   const [items, setItems] = useState<Chamado[]>([]);
+  const [metricas, setMetricas] = useState<Metricas>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -76,23 +104,23 @@ const Admin = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(WEBHOOK_URL, {
+      const res = await fetchWithTimeout(WEBHOOK_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ acao: "buscar_chamados" }),
+        body: JSON.stringify({}),
       });
-      if (!res.ok) throw new Error("Falha ao buscar");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const text = await res.text();
       let data: any = {};
       try { data = JSON.parse(text); } catch { data = {}; }
-      const rawList: any[] = Array.isArray(data)
-        ? data
-        : (data.chamados || data.data || data.items || []);
-      const list: Chamado[] = (rawList || []).filter(Boolean).map(mapChamado);
+      const list: Chamado[] = Array.isArray(data) ? data : (data.chamados || []);
       setItems(list);
+      setMetricas(data.metricas || {});
     } catch (e) {
-      setError("Não foi possível carregar os chamados. Tente novamente.");
+      console.error(e);
+      setError("Não foi possível carregar os chamados.");
       setItems([]);
+      setMetricas({});
     } finally {
       setLoading(false);
     }
@@ -101,9 +129,10 @@ const Admin = () => {
   useEffect(() => { fetchData(); }, []);
 
   const filtered = useMemo(() => {
+    const ql = q.toLowerCase();
     return items.filter((o) => {
-      const matchQ = !q || [o.protocolo, o.nome, o.empresa, o.email]
-        .filter(Boolean).join(" ").toLowerCase().includes(q.toLowerCase());
+      const matchQ = !ql || [o.protocolo, o.nome, o.empresa, o.email, o.tags, o.categoria_ia]
+        .filter(Boolean).join(" ").toLowerCase().includes(ql);
       const matchP = fPrio === "Todas" || norm(o.prioridade_ia) === norm(fPrio);
       const matchC = fCrit === "Todas" || norm(o.criticidade_ia) === norm(fCrit);
       const matchS = fStatus === "Todos" || norm(o.status) === norm(fStatus);
@@ -111,58 +140,47 @@ const Admin = () => {
     });
   }, [items, q, fPrio, fCrit, fStatus]);
 
-  const stats = useMemo(() => ({
-    total: items.length,
-    criticos: items.filter((i) => ["crítica", "critica"].includes(norm(i.criticidade_ia))).length,
-    altas: items.filter((i) => norm(i.prioridade_ia) === "alta").length,
-    recebidos: items.filter((i) => norm(i.status) === "recebido").length,
-    analise: items.filter((i) => ["em análise", "em analise"].includes(norm(i.status))).length,
-  }), [items]);
+  const m = metricas;
 
   return (
     <div className="min-h-screen">
       <TopNav />
 
-      <section className="relative overflow-hidden border-b border-border/60">
-        <div className="absolute inset-0 grid-pattern opacity-20" />
-        <div className="relative max-w-7xl mx-auto px-4 py-10">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-widest text-gradient mb-1">Painel Administrativo</p>
-              <h1 className="text-3xl md:text-4xl font-bold">Central de Ocorrências</h1>
-              <p className="text-sm text-muted-foreground mt-1">Monitore e gerencie chamados em tempo real</p>
-            </div>
-            <Button onClick={fetchData} variant="outline" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Atualizar
-            </Button>
+      <section className="border-b border-border/60">
+        <div className="max-w-7xl mx-auto px-4 py-8 flex items-center justify-between flex-wrap gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-gradient mb-1">Painel Administrativo</p>
+            <h1 className="text-3xl md:text-4xl font-bold">Central de Ocorrências</h1>
+            <p className="text-sm text-muted-foreground mt-1">Monitore e gerencie chamados em tempo real</p>
           </div>
+          <Button onClick={fetchData} variant="outline" disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />} Atualizar
+          </Button>
         </div>
       </section>
 
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-          <StatCard icon={Inbox} label="Total" value={stats.total} tone="primary" />
-          <StatCard icon={Flame} label="Críticos" value={stats.criticos} tone="critical" />
-          <StatCard icon={ShieldAlert} label="Alta Prioridade" value={stats.altas} tone="high" />
-          <StatCard icon={CheckCircle2} label="Recebidos" value={stats.recebidos} tone="info" />
-          <StatCard icon={Activity} label="Em Análise" value={stats.analise} tone="purple" />
+        {/* Metric cards */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Stat icon={Inbox} label="Total" value={m.total ?? items.length} tone="bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400" />
+          <Stat icon={Flame} label="Críticos" value={m.criticos ?? 0} tone="bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400" />
+          <Stat icon={ShieldAlert} label="Alta Prioridade" value={m.alta_prioridade ?? 0} tone="bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400" />
+          <Stat icon={CheckCircle2} label="Recebidos" value={m.recebidos ?? 0} tone="bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400" />
+          <Stat icon={Activity} label="Em Análise" value={m.em_analise ?? 0} tone="bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400" />
+          <Stat icon={CheckCircle2} label="Resolvidos" value={m.resolvidos ?? 0} tone="bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400" />
+          <Stat icon={Layers} label="Bloqueantes" value={m.bloqueantes ?? 0} tone="bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400" />
+          <Stat icon={ArrowUpRight} label="Escalamentos" value={m.escalonamentos ?? 0} tone="bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400" />
         </div>
 
         {/* Filters */}
         <Card className="glass-card rounded-2xl">
-          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-            <div className="relative md:col-span-1">
+          <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="relative md:col-span-2">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar protocolo, nome, empresa, email..."
-                className="pl-9"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
+              <Input placeholder="Buscar protocolo, nome, empresa, email, tags..." className="pl-9" value={q} onChange={(e) => setQ(e.target.value)} />
             </div>
             <Select value={fPrio} onValueChange={setFPrio}>
-              <SelectTrigger><Filter className="h-4 w-4" /><SelectValue placeholder="Prioridade" /></SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todas">Todas as prioridades</SelectItem>
                 <SelectItem value="Crítica">Crítica</SelectItem>
@@ -172,35 +190,30 @@ const Admin = () => {
               </SelectContent>
             </Select>
             <Select value={fCrit} onValueChange={setFCrit}>
-              <SelectTrigger><Flame className="h-4 w-4" /><SelectValue placeholder="Criticidade" /></SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todas">Todas as criticidades</SelectItem>
-                <SelectItem value="Crítica">Crítica</SelectItem>
-                <SelectItem value="Alta">Alta</SelectItem>
-                <SelectItem value="Média">Média</SelectItem>
-                <SelectItem value="Baixa">Baixa</SelectItem>
+                <SelectItem value="Bloqueante">Bloqueante</SelectItem>
+                <SelectItem value="Alto">Alto</SelectItem>
+                <SelectItem value="Médio">Médio</SelectItem>
+                <SelectItem value="Baixo">Baixo</SelectItem>
               </SelectContent>
             </Select>
             <Select value={fStatus} onValueChange={setFStatus}>
-              <SelectTrigger><Activity className="h-4 w-4" /><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os status</SelectItem>
                 <SelectItem value="Recebido">Recebido</SelectItem>
-                <SelectItem value="Em análise">Em análise</SelectItem>
+                <SelectItem value="Em Análise">Em Análise</SelectItem>
                 <SelectItem value="Resolvido">Resolvido</SelectItem>
               </SelectContent>
             </Select>
           </CardContent>
         </Card>
 
-        {/* List */}
+        {/* Table */}
         <Card className="glass-card rounded-2xl overflow-hidden">
-          <CardHeader className="border-b border-border/60">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5 text-primary" /> Ocorrências ({filtered.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
+          <CardContent className="p-0">
             {loading ? (
               <div className="text-center py-16 text-muted-foreground">
                 <Loader2 className="h-8 w-8 mx-auto mb-3 animate-spin" />
@@ -218,10 +231,46 @@ const Admin = () => {
                 <p className="text-sm">Nenhum chamado encontrado.</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {filtered.map((o, idx) => (
-                  <ChamadoRow key={o.protocolo || idx} chamado={o} onView={() => setSelected(o)} />
-                ))}
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/40 text-muted-foreground">
+                    <tr className="text-left text-[11px] uppercase tracking-wider">
+                      <th className="px-4 py-3">Protocolo</th>
+                      <th className="px-4 py-3">Data/Hora</th>
+                      <th className="px-4 py-3">Nome</th>
+                      <th className="px-4 py-3">Empresa</th>
+                      <th className="px-4 py-3">Categoria</th>
+                      <th className="px-4 py-3">Prioridade</th>
+                      <th className="px-4 py-3">Criticidade</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3">SLA</th>
+                      <th className="px-4 py-3 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((o, idx) => {
+                      const escal = norm(o.requer_escalonamento) === "sim";
+                      return (
+                        <tr key={o.protocolo || idx} className={`border-t border-border/60 hover:bg-muted/30 transition-colors ${escal ? "border-l-4 border-l-red-500" : ""}`}>
+                          <td className="px-4 py-3 font-mono text-primary text-xs whitespace-nowrap">{o.protocolo || "—"}</td>
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-muted-foreground">{o.data_hora_br || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{o.nome || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{o.empresa || "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap">{o.categoria_ia || "—"}</td>
+                          <td className="px-4 py-3">{o.prioridade_ia ? <Badge className={prioCls(o.prioridade_ia)}>{o.prioridade_ia}</Badge> : "—"}</td>
+                          <td className="px-4 py-3">{o.criticidade_ia ? <Badge className={critCls(o.criticidade_ia)}>{o.criticidade_ia}</Badge> : "—"}</td>
+                          <td className="px-4 py-3">{o.status ? <Badge className={statusCls(o.status)}>{o.status}</Badge> : "—"}</td>
+                          <td className="px-4 py-3 whitespace-nowrap text-xs">{o.sla_label || "—"}</td>
+                          <td className="px-4 py-3 text-right">
+                            <Button size="sm" variant="outline" onClick={() => setSelected(o)}>
+                              <Eye className="h-4 w-4" /> Ver
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </CardContent>
@@ -233,154 +282,145 @@ const Admin = () => {
   );
 };
 
-const ChamadoRow = ({ chamado: o, onView }: { chamado: Chamado; onView: () => void }) => (
-  <div className="group rounded-xl border border-border/60 bg-card/50 hover:bg-card hover:shadow-md hover:border-primary/40 transition-all p-4">
-    <div className="grid grid-cols-12 gap-3 items-center">
-      <div className="col-span-12 md:col-span-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Protocolo</p>
-        <p className="font-mono text-primary text-sm font-semibold truncate">{o.protocolo || "—"}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{o.data_hora || "—"}</p>
+const Stat = ({ icon: Icon, label, value, tone }: { icon: any; label: string; value: number | string; tone: string }) => (
+  <Card className="glass-card rounded-2xl">
+    <CardContent className="p-4 flex items-center gap-3">
+      <div className={`h-11 w-11 rounded-xl border flex items-center justify-center ${tone}`}>
+        <Icon className="h-5 w-5" />
       </div>
-      <div className="col-span-12 md:col-span-3">
-        <p className="text-sm font-medium truncate">{o.nome || "—"}</p>
-        <p className="text-xs text-muted-foreground truncate">{o.empresa || "—"}</p>
+      <div className="min-w-0">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{label}</p>
+        <p className="text-xl md:text-2xl font-bold">{value}</p>
       </div>
-      <div className="col-span-6 md:col-span-2">
-        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Categoria</p>
-        <p className="text-sm truncate">{o.categoria_ia || "—"}</p>
-      </div>
-      <div className="col-span-6 md:col-span-3 flex flex-wrap gap-1.5">
-        <LevelBadge value={o.prioridade_ia} kind="prio" />
-        <LevelBadge value={o.criticidade_ia} kind="crit" />
-        <StatusBadge value={o.status} />
-      </div>
-      <div className="col-span-12 md:col-span-2 flex md:justify-end">
-        <Button size="sm" variant="outline" onClick={onView} className="w-full md:w-auto">
-          <Eye className="h-4 w-4" /> Ver detalhes
-        </Button>
-      </div>
-    </div>
-  </div>
+    </CardContent>
+  </Card>
 );
 
-const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose: () => void }) => (
-  <Dialog open={!!chamado} onOpenChange={(o) => !o && onClose()}>
-    <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <FileText className="h-5 w-5 text-primary" />
-          Detalhes do Chamado
-        </DialogTitle>
-        <DialogDescription className="font-mono text-primary">
-          {chamado?.protocolo || "—"}
-        </DialogDescription>
-      </DialogHeader>
+const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose: () => void }) => {
+  const { toast } = useToast();
+  if (!chamado) return null;
+  const escal = norm(chamado.requer_escalonamento) === "sim";
+  const tags = (chamado.tags || "").split(",").map(s => s.trim()).filter(Boolean);
+  const copy = () => {
+    if (chamado.protocolo) {
+      navigator.clipboard.writeText(chamado.protocolo);
+      toast({ title: "Protocolo copiado!" });
+    }
+  };
+  return (
+    <Dialog open={!!chamado} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between gap-2">
+            <span>Detalhes do Chamado</span>
+            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8"><X className="h-4 w-4" /></Button>
+          </DialogTitle>
+        </DialogHeader>
 
-      {chamado && (
-        <div className="space-y-5 mt-2">
-          <Section icon={User} title="Dados do Cliente">
+        <div className="space-y-4">
+          {/* Identificação */}
+          <Section title="Identificação">
+            <button onClick={copy} className="text-left p-3 rounded-lg bg-secondary/60 border border-border hover:border-primary/40 group w-full">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 flex items-center justify-between">
+                Protocolo <Copy className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+              </p>
+              <p className="font-mono text-base md:text-lg font-bold text-primary">{chamado.protocolo || "—"}</p>
+            </button>
+            <Field label="Data/Hora de abertura" value={chamado.data_hora_br} />
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Status</p>
+              {chamado.status ? <Badge className={statusCls(chamado.status)}>{chamado.status}</Badge> : "—"}
+            </div>
+          </Section>
+
+          <Section title="Solicitante">
             <Field label="Nome" value={chamado.nome} />
-            <Field label="Email" value={chamado.email} />
+            <Field label="E-mail" value={chamado.email} />
             <Field label="Empresa" value={chamado.empresa} />
           </Section>
 
-          <Section icon={FileText} title="Solicitação Enviada">
-            <Field label="Tipo de Solicitação" value={chamado.tipo_solicitacao || chamado.tipo_informado} />
-            <Field label="Urgência" value={chamado.urgencia} />
-            <Field label="Descrição" value={chamado.descricao} full />
-          </Section>
-
-          <Section icon={Sparkles} title="Análise da IA">
-            <div className="col-span-2 flex flex-wrap gap-2 mb-2">
-              <LevelBadge value={chamado.prioridade_ia} kind="prio" />
-              <LevelBadge value={chamado.criticidade_ia} kind="crit" />
-              <StatusBadge value={chamado.status} />
+          <Section title="Solicitação Original">
+            <Field label="Tipo" value={chamado.tipo_solicitacao} />
+            <Field label="Urgência informada" value={chamado.urgencia} />
+            <div className="md:col-span-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Descrição</p>
+              <textarea readOnly value={chamado.descricao || ""} className="w-full min-h-[100px] max-h-[200px] rounded-lg border border-border bg-muted/30 p-3 text-sm resize-none" />
             </div>
-            <Field label="Categoria IA" value={chamado.categoria_ia} />
-            <Field label="Ação Recomendada" value={chamado.acao_recomendada} full />
-            <Field label="Mensagem da IA" value={chamado.mensagem_ia || chamado.mensagem} full />
           </Section>
 
-          <Section icon={Hash} title="Dados do Sistema">
-            <Field label="Protocolo" value={chamado.protocolo} mono />
-            <Field label="Data / Hora" value={chamado.data_hora} />
+          <Section title="Análise da IA">
+            <Field label="Categoria" value={chamado.categoria_ia} />
+            <Field label="Complexidade" value={chamado.complexidade_estimada} />
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Prioridade</p>
+              {chamado.prioridade_ia ? <Badge className={prioCls(chamado.prioridade_ia)}>{chamado.prioridade_ia}</Badge> : "—"}
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Criticidade</p>
+              {chamado.criticidade_ia ? <Badge className={critCls(chamado.criticidade_ia)}>{chamado.criticidade_ia}</Badge> : "—"}
+            </div>
+            <Field label="Sentimento" value={chamado.sentimento_cliente} />
+            <Field label="SLA" value={chamado.sla_label} />
+            <Field label="Prazo de atendimento" value={chamado.prazo_atendimento} />
+            {tags.length > 0 && (
+              <div className="md:col-span-2">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Tags</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {tags.map((t, i) => <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-secondary border border-border">{t}</span>)}
+                </div>
+              </div>
+            )}
+            {chamado.resumo_executivo && (
+              <div className="md:col-span-2">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Resumo executivo</p>
+                <p className="text-sm italic text-foreground/90">{chamado.resumo_executivo}</p>
+              </div>
+            )}
+            {escal && (
+              <div className="md:col-span-2">
+                <Badge className="bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/40">⚠ Requer Escalamento</Badge>
+              </div>
+            )}
+          </Section>
+
+          <Section title="Ação e Mensagem">
+            {chamado.acao_recomendada && (
+              <div className="md:col-span-2 p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-500/10 dark:border-green-500/30">
+                <p className="text-[10px] uppercase tracking-widest text-green-700 dark:text-green-300 mb-1 flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Ação recomendada</p>
+                <p className="text-sm whitespace-pre-wrap">{chamado.acao_recomendada}</p>
+              </div>
+            )}
+            {chamado.mensagem_ia && (
+              <div className="md:col-span-2 p-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-500/10 dark:border-yellow-500/30">
+                <p className="text-[10px] uppercase tracking-widest text-yellow-700 dark:text-yellow-300 mb-1 flex items-center gap-1.5"><Clock className="h-3 w-3" /> Mensagem ao cliente</p>
+                <p className="text-sm whitespace-pre-wrap">{chamado.mensagem_ia}</p>
+              </div>
+            )}
+          </Section>
+
+          <Section title="Sistema">
             <Field label="Responsável" value={chamado.responsavel} />
           </Section>
-        </div>
-      )}
-    </DialogContent>
-  </Dialog>
-);
 
-const Section = ({ icon: Icon, title, children }: any) => (
-  <div className="rounded-xl border border-border/60 bg-muted/30 p-4">
-    <div className="flex items-center gap-2 mb-3 pb-2 border-b border-border/60">
-      <Icon className="h-4 w-4 text-primary" />
-      <h3 className="text-sm font-semibold uppercase tracking-wider">{title}</h3>
-    </div>
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{children}</div>
+          <Button onClick={onClose} variant="outline" className="w-full">Fechar</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 pb-2 border-b border-border/60">{title}</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>
   </div>
 );
 
-const Field = ({ label, value, full, mono }: { label: string; value?: string; full?: boolean; mono?: boolean }) => (
-  <div className={full ? "sm:col-span-2" : ""}>
-    <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-    <p className={`text-sm ${mono ? "font-mono text-primary" : ""} whitespace-pre-wrap break-words`}>
-      {value || "—"}
-    </p>
+const Field = ({ label, value }: { label: string; value?: string }) => (
+  <div>
+    <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{label}</p>
+    <p className="text-sm break-words">{value || "—"}</p>
   </div>
 );
-
-const StatCard = ({ icon: Icon, label, value, tone }: any) => {
-  const tones: Record<string, string> = {
-    primary: "bg-primary/10 border-primary/30 text-primary",
-    critical: "bg-red-500/10 border-red-500/40 text-red-500",
-    high: "bg-orange-500/10 border-orange-500/40 text-orange-500",
-    info: "bg-blue-500/10 border-blue-500/40 text-blue-500",
-    purple: "bg-purple-500/10 border-purple-500/40 text-purple-500",
-  };
-  return (
-    <Card className="glass-card rounded-2xl">
-      <CardContent className="p-5 flex items-center gap-4">
-        <div className={`h-12 w-12 rounded-xl border flex items-center justify-center ${tones[tone]}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-widest text-muted-foreground">{label}</p>
-          <p className="text-2xl font-bold">{value}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-const LevelBadge = ({ value, kind }: { value?: string; kind?: "prio" | "crit" }) => {
-  const v = norm(value);
-  let cls = "bg-secondary text-muted-foreground border-border";
-  if (v === "crítica" || v === "critica") cls = "bg-red-500/15 text-red-600 dark:text-red-400 border-red-500/40";
-  else if (v === "alta") cls = "bg-orange-500/15 text-orange-600 dark:text-orange-400 border-orange-500/40";
-  else if (v === "média" || v === "media") cls = "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/40";
-  else if (v === "baixa") cls = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40";
-  if (!value) return null;
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cls}`}>
-      {kind === "prio" ? "Prio: " : kind === "crit" ? "Crit: " : ""}{value}
-    </span>
-  );
-};
-
-const StatusBadge = ({ value }: { value?: string }) => {
-  const v = norm(value);
-  let cls = "bg-secondary text-muted-foreground border-border";
-  if (v === "recebido") cls = "bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/40";
-  else if (v === "em análise" || v === "em analise") cls = "bg-purple-500/15 text-purple-600 dark:text-purple-400 border-purple-500/40";
-  else if (v === "resolvido" || v === "concluído" || v === "concluido") cls = "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/40";
-  if (!value) return null;
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${cls}`}>
-      {value}
-    </span>
-  );
-};
 
 export default Admin;
