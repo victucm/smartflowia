@@ -19,8 +19,9 @@ import {
 } from "@/components/ui/dialog";
 import { isAdminAuthed } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, type Chamado } from "@/lib/supabase";
+import type { Chamado } from "@/lib/supabase";
 
+const WEBHOOK_BUSCAR   = "https://victucm.app.n8n.cloud/webhook/buscar-chamados";
 const WEBHOOK_ATUALIZAR = "https://victucm.app.n8n.cloud/webhook/atualizar-chamado";
 const STATUS_LIST = ["Recebido", "Em Análise", "Aguardando Cliente", "Em Desenvolvimento", "Resolvido", "Cancelado"];
 
@@ -83,12 +84,15 @@ const Admin = () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: err } = await supabase
-        .from("chamados")
-        .select("*")
-        .order("created_at", { ascending: false });
-      if (err) throw err;
-      setItems(data ?? []);
+      const res = await fetch(WEBHOOK_BUSCAR, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      if (json.sucesso === false) throw new Error(json.erro || "Erro ao buscar");
+      setItems(json.chamados ?? []);
     } catch (e) {
       console.error(e);
       setError("Não foi possível carregar os chamados.");
