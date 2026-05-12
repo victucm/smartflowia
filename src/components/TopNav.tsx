@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Activity, LayoutDashboard, Lock, LogOut, Moon, Shield, Sparkles, Sun } from "lucide-react";
+import { Activity, LayoutDashboard, Lock, LogOut, Moon, Shield, Sparkles, Sun, Ticket } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -19,7 +19,10 @@ const TopNav = () => {
   const [error, setError] = useState("");
   const [authed, setAuthed] = useState(isAdminAuthed());
 
-  const links = [{ to: "/", label: "Solicitações", icon: Activity }];
+  const links = [
+    { to: "/", label: "Solicitações", icon: Activity },
+    { to: "/meus-chamados", label: "Meus Chamados", icon: Ticket },
+  ];
   if (authed) links.push({ to: "/admin", label: "Painel de Ocorrências", icon: LayoutDashboard });
 
   const handleLogin = (e: React.FormEvent) => {

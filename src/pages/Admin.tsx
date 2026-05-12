@@ -4,9 +4,12 @@ import TopNav from "@/components/TopNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Activity, AlertTriangle, CheckCircle2, Search, Inbox, RefreshCw,
-  ShieldAlert, Flame, Loader2, Eye, Copy, Clock, Sparkles, X, ArrowUpRight, Layers,
+  ShieldAlert, Flame, Loader2, Eye, Copy, Clock, Sparkles, X,
+  ArrowUpRight, Layers, Edit2,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -16,47 +19,12 @@ import {
 } from "@/components/ui/dialog";
 import { isAdminAuthed } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import { supabase, type Chamado } from "@/lib/supabase";
 
-const WEBHOOK_URL = "https://victucm.app.n8n.cloud/webhook/buscar-chamados";
-
-interface Chamado {
-  protocolo?: string;
-  data_hora_br?: string;
-  nome?: string;
-  email?: string;
-  empresa?: string;
-  tipo_solicitacao?: string;
-  descricao?: string;
-  urgencia?: string;
-  categoria_ia?: string;
-  prioridade_ia?: string;
-  criticidade_ia?: string;
-  complexidade_estimada?: string;
-  acao_recomendada?: string;
-  mensagem_ia?: string;
-  status?: string;
-  resumo_executivo?: string;
-  sentimento_cliente?: string;
-  tags?: string;
-  sla_label?: string;
-  prazo_atendimento?: string;
-  requer_escalonamento?: string;
-  responsavel?: string;
-}
-
-interface Metricas {
-  total?: number; criticos?: number; alta_prioridade?: number;
-  recebidos?: number; em_analise?: number; resolvidos?: number;
-  bloqueantes?: number; escalonamentos?: number;
-}
+const WEBHOOK_ATUALIZAR = "https://victucm.app.n8n.cloud/webhook/atualizar-chamado";
+const STATUS_LIST = ["Recebido", "Em Análise", "Aguardando Cliente", "Em Desenvolvimento", "Resolvido", "Cancelado"];
 
 const norm = (s?: string) => (s || "").toLowerCase().trim();
-
-const fetchWithTimeout = (url: string, opts: RequestInit, timeout = 30000) => {
-  const ctrl = new AbortController();
-  const t = setTimeout(() => ctrl.abort(), timeout);
-  return fetch(url, { ...opts, signal: ctrl.signal }).finally(() => clearTimeout(t));
-};
 
 const prioCls = (v?: string) => {
   const x = norm(v);
@@ -66,6 +34,7 @@ const prioCls = (v?: string) => {
   if (x === "baixa") return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/40";
   return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
 };
+
 const critCls = (v?: string) => {
   const x = norm(v);
   if (x.startsWith("bloque")) return "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/40";
@@ -74,11 +43,15 @@ const critCls = (v?: string) => {
   if (x === "baixo") return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/40";
   return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
 };
+
 const statusCls = (v?: string) => {
   const x = norm(v);
-  if (x === "recebido") return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/40";
-  if (x === "em análise" || x === "em analise") return "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/40";
+  if (x === "recebido") return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
+  if (x === "em análise" || x === "em analise") return "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/40";
+  if (x === "aguardando cliente") return "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/40";
+  if (x === "em desenvolvimento") return "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/40";
   if (x === "resolvido") return "bg-green-100 text-green-700 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/40";
+  if (x === "cancelado") return "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/40";
   return "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/40";
 };
 
@@ -90,8 +63,8 @@ const Admin = () => {
   useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
   if (!isAdminAuthed()) return <Navigate to="/" replace />;
 
+  const { toast } = useToast();
   const [items, setItems] = useState<Chamado[]>([]);
-  const [metricas, setMetricas] = useState<Metricas>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [q, setQ] = useState("");
@@ -99,28 +72,27 @@ const Admin = () => {
   const [fCrit, setFCrit] = useState("Todas");
   const [fStatus, setFStatus] = useState("Todos");
   const [selected, setSelected] = useState<Chamado | null>(null);
+  const [updating, setUpdating] = useState<Chamado | null>(null);
+
+  const [novoStatus, setNovoStatus] = useState("");
+  const [respostaAdmin, setRespostaAdmin] = useState("");
+  const [adminNome, setAdminNome] = useState("Admin");
+  const [savingUpdate, setSavingUpdate] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchWithTimeout(WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const text = await res.text();
-      let data: any = {};
-      try { data = JSON.parse(text); } catch { data = {}; }
-      const list: Chamado[] = Array.isArray(data) ? data : (data.chamados || []);
-      setItems(list);
-      setMetricas(data.metricas || {});
+      const { data, error: err } = await supabase
+        .from("chamados")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (err) throw err;
+      setItems(data ?? []);
     } catch (e) {
       console.error(e);
       setError("Não foi possível carregar os chamados.");
       setItems([]);
-      setMetricas({});
     } finally {
       setLoading(false);
     }
@@ -139,6 +111,53 @@ const Admin = () => {
       return matchQ && matchP && matchC && matchS;
     });
   }, [items, q, fPrio, fCrit, fStatus]);
+
+  const metricas = useMemo(() => ({
+    total: items.length,
+    criticos: items.filter((i) => norm(i.prioridade_ia).startsWith("crít") || norm(i.prioridade_ia).startsWith("crit")).length,
+    alta_prioridade: items.filter((i) => norm(i.prioridade_ia) === "alta").length,
+    recebidos: items.filter((i) => norm(i.status) === "recebido").length,
+    em_analise: items.filter((i) => norm(i.status) === "em análise" || norm(i.status) === "em analise").length,
+    resolvidos: items.filter((i) => norm(i.status) === "resolvido").length,
+    bloqueantes: items.filter((i) => norm(i.criticidade_ia).startsWith("bloque")).length,
+    escalonamentos: items.filter((i) => i.requer_escalonamento === true).length,
+  }), [items]);
+
+  const openUpdate = (c: Chamado) => {
+    setNovoStatus(c.status || "Recebido");
+    setRespostaAdmin(c.resposta_admin || "");
+    setAdminNome("Admin");
+    setUpdating(c);
+  };
+
+  const salvarAtualizacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!updating || !novoStatus) return;
+    setSavingUpdate(true);
+    try {
+      const res = await fetch(WEBHOOK_ATUALIZAR, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          protocolo: updating.protocolo,
+          novo_status: novoStatus,
+          resposta_admin: respostaAdmin,
+          admin_nome: adminNome,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.erro || `HTTP ${res.status}`);
+      }
+      toast({ title: "Chamado atualizado!", description: "Cliente notificado por email." });
+      setUpdating(null);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingUpdate(false);
+    }
+  };
 
   const m = metricas;
 
@@ -162,14 +181,14 @@ const Admin = () => {
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         {/* Metric cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <Stat icon={Inbox} label="Total" value={m.total ?? items.length} tone="bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400" />
-          <Stat icon={Flame} label="Críticos" value={m.criticos ?? 0} tone="bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400" />
-          <Stat icon={ShieldAlert} label="Alta Prioridade" value={m.alta_prioridade ?? 0} tone="bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400" />
-          <Stat icon={CheckCircle2} label="Recebidos" value={m.recebidos ?? 0} tone="bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400" />
-          <Stat icon={Activity} label="Em Análise" value={m.em_analise ?? 0} tone="bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400" />
-          <Stat icon={CheckCircle2} label="Resolvidos" value={m.resolvidos ?? 0} tone="bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400" />
-          <Stat icon={Layers} label="Bloqueantes" value={m.bloqueantes ?? 0} tone="bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400" />
-          <Stat icon={ArrowUpRight} label="Escalamentos" value={m.escalonamentos ?? 0} tone="bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400" />
+          <Stat icon={Inbox} label="Total" value={m.total} tone="bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400" />
+          <Stat icon={Flame} label="Críticos" value={m.criticos} tone="bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400" />
+          <Stat icon={ShieldAlert} label="Alta Prioridade" value={m.alta_prioridade} tone="bg-orange-500/10 border-orange-500/30 text-orange-600 dark:text-orange-400" />
+          <Stat icon={CheckCircle2} label="Recebidos" value={m.recebidos} tone="bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400" />
+          <Stat icon={Activity} label="Em Análise" value={m.em_analise} tone="bg-violet-500/10 border-violet-500/30 text-violet-600 dark:text-violet-400" />
+          <Stat icon={CheckCircle2} label="Resolvidos" value={m.resolvidos} tone="bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400" />
+          <Stat icon={Layers} label="Bloqueantes" value={m.bloqueantes} tone="bg-purple-500/10 border-purple-500/30 text-purple-700 dark:text-purple-400" />
+          <Stat icon={ArrowUpRight} label="Escalamentos" value={m.escalonamentos} tone="bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400" />
         </div>
 
         {/* Filters */}
@@ -203,9 +222,7 @@ const Admin = () => {
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="Todos">Todos os status</SelectItem>
-                <SelectItem value="Recebido">Recebido</SelectItem>
-                <SelectItem value="Em Análise">Em Análise</SelectItem>
-                <SelectItem value="Resolvido">Resolvido</SelectItem>
+                {STATUS_LIST.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
               </SelectContent>
             </Select>
           </CardContent>
@@ -249,7 +266,7 @@ const Admin = () => {
                   </thead>
                   <tbody>
                     {filtered.map((o, idx) => {
-                      const escal = norm(o.requer_escalonamento) === "sim";
+                      const escal = o.requer_escalonamento === true;
                       return (
                         <tr key={o.protocolo || idx} className={`border-t border-border/60 hover:bg-muted/30 transition-colors ${escal ? "border-l-4 border-l-red-500" : ""}`}>
                           <td className="px-4 py-3 font-mono text-primary text-xs whitespace-nowrap">{o.protocolo || "—"}</td>
@@ -262,9 +279,14 @@ const Admin = () => {
                           <td className="px-4 py-3">{o.status ? <Badge className={statusCls(o.status)}>{o.status}</Badge> : "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-xs">{o.sla_label || "—"}</td>
                           <td className="px-4 py-3 text-right">
-                            <Button size="sm" variant="outline" onClick={() => setSelected(o)}>
-                              <Eye className="h-4 w-4" /> Ver
-                            </Button>
+                            <div className="flex items-center justify-end gap-2">
+                              <Button size="sm" variant="outline" onClick={() => setSelected(o)}>
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => openUpdate(o)} className="border-primary/40 text-primary hover:bg-primary/10">
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -278,6 +300,56 @@ const Admin = () => {
       </main>
 
       <DetailsDialog chamado={selected} onClose={() => setSelected(null)} />
+
+      {/* Modal de Atualização de Status */}
+      <Dialog open={!!updating} onOpenChange={(o) => !o && setUpdating(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit2 className="h-5 w-5" />
+              Atualizar Chamado
+              {updating && <span className="font-mono text-sm text-primary">{updating.protocolo}</span>}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={salvarAtualizacao} className="space-y-4 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Novo Status *</Label>
+              <Select value={novoStatus} onValueChange={setNovoStatus} required>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_LIST.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resposta para o Cliente</Label>
+              <Textarea
+                value={respostaAdmin}
+                onChange={(e) => setRespostaAdmin(e.target.value)}
+                placeholder="Mensagem opcional para o cliente (será enviada por email e exibida no portal)..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seu Nome</Label>
+              <Input value={adminNome} onChange={(e) => setAdminNome(e.target.value)} placeholder="Nome do admin" />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={() => setUpdating(null)} disabled={savingUpdate}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1 bg-gradient-brand text-primary-foreground" disabled={savingUpdate || !novoStatus}>
+                {savingUpdate ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : "Confirmar Atualização"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -299,8 +371,8 @@ const Stat = ({ icon: Icon, label, value, tone }: { icon: any; label: string; va
 const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose: () => void }) => {
   const { toast } = useToast();
   if (!chamado) return null;
-  const escal = norm(chamado.requer_escalonamento) === "sim";
-  const tags = (chamado.tags || "").split(",").map(s => s.trim()).filter(Boolean);
+  const escal = chamado.requer_escalonamento === true;
+  const tags = (chamado.tags || "").split(",").map((s) => s.trim()).filter(Boolean);
   const copy = () => {
     if (chamado.protocolo) {
       navigator.clipboard.writeText(chamado.protocolo);
@@ -318,7 +390,6 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Identificação */}
           <Section title="Identificação">
             <button onClick={copy} className="text-left p-3 rounded-lg bg-secondary/60 border border-border hover:border-primary/40 group w-full">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 flex items-center justify-between">
@@ -359,7 +430,6 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Criticidade</p>
               {chamado.criticidade_ia ? <Badge className={critCls(chamado.criticidade_ia)}>{chamado.criticidade_ia}</Badge> : "—"}
             </div>
-            <Field label="Sentimento" value={chamado.sentimento_cliente} />
             <Field label="SLA" value={chamado.sla_label} />
             <Field label="Prazo de atendimento" value={chamado.prazo_atendimento} />
             {tags.length > 0 && (
@@ -383,7 +453,7 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
             )}
           </Section>
 
-          <Section title="Ação e Mensagem">
+          <Section title="Ação e Mensagem (Interno)">
             {chamado.acao_recomendada && (
               <div className="md:col-span-2 p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-500/10 dark:border-green-500/30">
                 <p className="text-[10px] uppercase tracking-widest text-green-700 dark:text-green-300 mb-1 flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Ação recomendada</p>
@@ -398,9 +468,13 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
             )}
           </Section>
 
-          <Section title="Sistema">
-            <Field label="Responsável" value={chamado.responsavel} />
-          </Section>
+          {chamado.resposta_admin && (
+            <Section title="Resposta Admin Registrada">
+              <div className="md:col-span-2 p-3 rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-500/10 dark:border-violet-500/30">
+                <p className="text-sm whitespace-pre-wrap">{chamado.resposta_admin}</p>
+              </div>
+            </Section>
+          )}
 
           <Button onClick={onClose} variant="outline" className="w-full">Fechar</Button>
         </div>
