@@ -4,7 +4,10 @@ import TopNav from "@/components/TopNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { supabase, type Chamado } from "@/lib/supabase";
+import type { Chamado } from "@/lib/supabase";
+
+const SUPABASE_URL = "https://zorcruyohscjnaefhkxz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvcmNydXlvaHNjam5hZWZoa3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTIwNDUsImV4cCI6MjA5NDE2ODA0NX0.mFj4hImmWaRgMtRkKnZvZdfiUhYLhDvDHhgYlazLaYo";
 import {
   Search, Loader2, Inbox, AlertTriangle, Clock, ChevronRight,
   Ticket, Mail, Building2, Tag,
@@ -59,13 +62,13 @@ const MeusChamados = () => {
     setChamados(null);
     setSearched(false);
     try {
-      const { data, error } = await supabase
-        .from("chamados")
-        .select("*")
-        .ilike("email", emailTrimmed)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setChamados(data ?? []);
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/chamados?email=ilike.${encodeURIComponent(emailTrimmed)}&select=*&order=created_at.desc`,
+        { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setChamados(Array.isArray(data) ? data : []);
       setSearched(true);
     } catch (err) {
       console.error(err);

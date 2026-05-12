@@ -4,7 +4,10 @@ import TopNav from "@/components/TopNav";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { supabase, type Chamado as ChamadoType, type AtualizacaoChamado } from "@/lib/supabase";
+import type { Chamado as ChamadoType, AtualizacaoChamado } from "@/lib/supabase";
+
+const SUPABASE_URL = "https://zorcruyohscjnaefhkxz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvcmNydXlvaHNjam5hZWZoa3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTIwNDUsImV4cCI6MjA5NDE2ODA0NX0.mFj4hImmWaRgMtRkKnZvZdfiUhYLhDvDHhgYlazLaYo";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, AlertTriangle, ArrowLeft, Clock, CheckCircle2,
@@ -87,15 +90,22 @@ const ChamadoPage = () => {
     if (!protocolo) return;
     setLoading(true);
     try {
-      const [{ data: cData, error: cErr }, { data: aData, error: aErr }] = await Promise.all([
-        supabase.from("chamados").select("*").eq("protocolo", protocolo).maybeSingle(),
-        supabase.from("atualizacoes_chamado").select("*").eq("protocolo", protocolo).order("created_at", { ascending: true }),
+      const [resC, resA] = await Promise.all([
+        fetch(
+          `${SUPABASE_URL}/rest/v1/chamados?protocolo=eq.${encodeURIComponent(protocolo)}&select=*`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        ),
+        fetch(
+          `${SUPABASE_URL}/rest/v1/atualizacoes_chamado?protocolo=eq.${encodeURIComponent(protocolo)}&select=*&order=created_at.asc`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        ),
       ]);
-      if (cErr) throw cErr;
-      if (aErr) throw aErr;
-      if (!cData) { setNotFound(true); return; }
-      setChamado(cData);
-      setAtualizacoes(aData ?? []);
+      if (!resC.ok) throw new Error(`HTTP ${resC.status}`);
+      const cArray = await resC.json();
+      if (!Array.isArray(cArray) || cArray.length === 0) { setNotFound(true); return; }
+      const aData = resA.ok ? await resA.json() : [];
+      setChamado(cArray[0]);
+      setAtualizacoes(Array.isArray(aData) ? aData : []);
     } catch (err) {
       console.error(err);
       toast({ title: "Erro ao carregar chamado", variant: "destructive" });
@@ -111,15 +121,24 @@ const ChamadoPage = () => {
     if (!mensagem.trim() || !protocolo) return;
     setSending(true);
     try {
-      const { error } = await supabase.from("atualizacoes_chamado").insert({
-        protocolo,
-        tipo: "mensagem_cliente",
-        titulo: "Informação adicional do cliente",
-        mensagem: mensagem.trim(),
-        autor: chamado?.nome || "Cliente",
-        created_at: new Date().toISOString(),
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/atualizacoes_chamado`, {
+        method: "POST",
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "Content-Type": "application/json",
+          Prefer: "return=minimal",
+        },
+        body: JSON.stringify({
+          protocolo,
+          tipo: "mensagem_cliente",
+          titulo: "Informação adicional do cliente",
+          mensagem: mensagem.trim(),
+          autor: chamado?.nome || "Cliente",
+          created_at: new Date().toISOString(),
+        }),
       });
-      if (error) throw error;
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setMensagem("");
       toast({ title: "Mensagem enviada!", description: "Sua informação foi registrada no chamado." });
       await fetchData();
