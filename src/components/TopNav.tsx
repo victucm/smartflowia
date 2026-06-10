@@ -59,7 +59,9 @@ const TopNav = () => {
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 p-1 rounded-full bg-secondary border border-border">
             {links.map((l) => {
-              const active = pathname === l.to;
+              const active = l.to === "/"
+        ? pathname === "/"
+        : pathname.startsWith(l.to) || (l.to === "/meus-chamados" && pathname.startsWith("/chamado"));
               const Icon = l.icon;
               return (
                 <Link

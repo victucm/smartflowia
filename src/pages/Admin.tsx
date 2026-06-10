@@ -8,8 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Activity, AlertTriangle, CheckCircle2, Search, Inbox, RefreshCw,
-  ShieldAlert, Flame, Loader2, Eye, Copy, Clock, Sparkles, X,
-  ArrowUpRight, Layers, Edit2,
+  ShieldAlert, Flame, Loader2, Eye, Copy, Clock, Sparkles,
+  ArrowUpRight, Layers, MessageSquare, Ticket, History,
 } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -21,6 +21,8 @@ import { isAdminAuthed } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import type { Chamado } from "@/lib/supabase";
 
+const SUPABASE_URL = "https://zorcruyohscjnaefhkxz.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpvcmNydXlvaHNjam5hZWZoa3h6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1OTIwNDUsImV4cCI6MjA5NDE2ODA0NX0.mFj4hImmWaRgMtRkKnZvZdfiUhYLhDvDHhgYlazLaYo";
 const WEBHOOK_BUSCAR   = "https://victucm.app.n8n.cloud/webhook/buscar-chamados";
 const WEBHOOK_ATUALIZAR = "https://victucm.app.n8n.cloud/webhook/atualizar-chamado";
 const STATUS_LIST = ["Recebido", "Em Análise", "Aguardando Cliente", "Em Desenvolvimento", "Resolvido", "Cancelado"];
@@ -60,6 +62,14 @@ const Badge = ({ className = "", children }: { className?: string; children: Rea
   <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${className}`}>{children}</span>
 );
 
+const formatDate = (iso?: string) => {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return iso; }
+};
+
+// ─── Admin page ───────────────────────────────────────────────────────────────
 const Admin = () => {
   useEffect(() => { document.title = "Painel de Ocorrências - SmartFlow IA"; }, []);
   if (!isAdminAuthed()) return <Navigate to="/" replace />;
@@ -73,12 +83,6 @@ const Admin = () => {
   const [fCrit, setFCrit] = useState("Todas");
   const [fStatus, setFStatus] = useState("Todos");
   const [selected, setSelected] = useState<Chamado | null>(null);
-  const [updating, setUpdating] = useState<Chamado | null>(null);
-
-  const [novoStatus, setNovoStatus] = useState("");
-  const [respostaAdmin, setRespostaAdmin] = useState("");
-  const [adminNome, setAdminNome] = useState("Admin");
-  const [savingUpdate, setSavingUpdate] = useState(false);
 
   const fetchData = async () => {
     setLoading(true);
@@ -127,42 +131,6 @@ const Admin = () => {
     escalonamentos: items.filter((i) => i.requer_escalonamento === true).length,
   }), [items]);
 
-  const openUpdate = (c: Chamado) => {
-    setNovoStatus(c.status || "Recebido");
-    setRespostaAdmin(c.resposta_admin || "");
-    setAdminNome("Admin");
-    setUpdating(c);
-  };
-
-  const salvarAtualizacao = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!updating || !novoStatus) return;
-    setSavingUpdate(true);
-    try {
-      const res = await fetch(WEBHOOK_ATUALIZAR, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          protocolo: updating.protocolo,
-          novo_status: novoStatus,
-          resposta_admin: respostaAdmin,
-          admin_nome: adminNome,
-        }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.erro || `HTTP ${res.status}`);
-      }
-      toast({ title: "Chamado atualizado!", description: "Cliente notificado por email." });
-      setUpdating(null);
-      await fetchData();
-    } catch (err: any) {
-      toast({ title: "Erro ao atualizar", description: err.message || "Tente novamente.", variant: "destructive" });
-    } finally {
-      setSavingUpdate(false);
-    }
-  };
-
   const m = metricas;
 
   return (
@@ -183,7 +151,6 @@ const Admin = () => {
       </section>
 
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        {/* Metric cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <Stat icon={Inbox} label="Total" value={m.total} tone="bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400" />
           <Stat icon={Flame} label="Críticos" value={m.criticos} tone="bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400" />
@@ -195,7 +162,6 @@ const Admin = () => {
           <Stat icon={ArrowUpRight} label="Escalamentos" value={m.escalonamentos} tone="bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-400" />
         </div>
 
-        {/* Filters */}
         <Card className="glass-card rounded-2xl">
           <CardContent className="p-4 grid grid-cols-1 md:grid-cols-5 gap-3">
             <div className="relative md:col-span-2">
@@ -232,7 +198,6 @@ const Admin = () => {
           </CardContent>
         </Card>
 
-        {/* Table */}
         <Card className="glass-card rounded-2xl overflow-hidden">
           <CardContent className="p-0">
             {loading ? (
@@ -262,7 +227,6 @@ const Admin = () => {
                       <th className="px-4 py-3">Empresa</th>
                       <th className="px-4 py-3">Categoria</th>
                       <th className="px-4 py-3">Prioridade</th>
-                      <th className="px-4 py-3">Criticidade</th>
                       <th className="px-4 py-3">Status</th>
                       <th className="px-4 py-3">SLA</th>
                       <th className="px-4 py-3 text-right">Ações</th>
@@ -272,25 +236,27 @@ const Admin = () => {
                     {filtered.map((o, idx) => {
                       const escal = o.requer_escalonamento === true;
                       return (
-                        <tr key={o.protocolo || idx} className={`border-t border-border/60 hover:bg-muted/30 transition-colors ${escal ? "border-l-4 border-l-red-500" : ""}`}>
+                        <tr
+                          key={o.protocolo || idx}
+                          className={`border-t border-border/60 hover:bg-muted/30 transition-colors ${escal ? "border-l-4 border-l-red-500" : ""}`}
+                        >
                           <td className="px-4 py-3 font-mono text-primary text-xs whitespace-nowrap">{o.protocolo || "—"}</td>
                           <td className="px-4 py-3 text-xs whitespace-nowrap text-muted-foreground">{o.data_hora_br || "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{o.nome || "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{o.empresa || "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap">{o.categoria_ia || "—"}</td>
                           <td className="px-4 py-3">{o.prioridade_ia ? <Badge className={prioCls(o.prioridade_ia)}>{o.prioridade_ia}</Badge> : "—"}</td>
-                          <td className="px-4 py-3">{o.criticidade_ia ? <Badge className={critCls(o.criticidade_ia)}>{o.criticidade_ia}</Badge> : "—"}</td>
                           <td className="px-4 py-3">{o.status ? <Badge className={statusCls(o.status)}>{o.status}</Badge> : "—"}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-xs">{o.sla_label || "—"}</td>
                           <td className="px-4 py-3 text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Button size="sm" variant="outline" onClick={() => setSelected(o)}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={() => openUpdate(o)} className="border-primary/40 text-primary hover:bg-primary/10">
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                            </div>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setSelected(o)}
+                              className="border-primary/40 text-primary hover:bg-primary/10"
+                            >
+                              <Eye className="h-4 w-4 mr-1" /> Abrir
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -303,61 +269,16 @@ const Admin = () => {
         </Card>
       </main>
 
-      <DetailsDialog chamado={selected} onClose={() => setSelected(null)} />
-
-      {/* Modal de Atualização de Status */}
-      <Dialog open={!!updating} onOpenChange={(o) => !o && setUpdating(null)}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Edit2 className="h-5 w-5" />
-              Atualizar Chamado
-              {updating && <span className="font-mono text-sm text-primary">{updating.protocolo}</span>}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={salvarAtualizacao} className="space-y-4 pt-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Novo Status *</Label>
-              <Select value={novoStatus} onValueChange={setNovoStatus} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_LIST.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resposta para o Cliente</Label>
-              <Textarea
-                value={respostaAdmin}
-                onChange={(e) => setRespostaAdmin(e.target.value)}
-                placeholder="Mensagem opcional para o cliente (será enviada por email e exibida no portal)..."
-                rows={4}
-                className="resize-none"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seu Nome</Label>
-              <Input value={adminNome} onChange={(e) => setAdminNome(e.target.value)} placeholder="Nome do admin" />
-            </div>
-            <div className="flex gap-3 pt-2">
-              <Button type="button" variant="outline" className="flex-1" onClick={() => setUpdating(null)} disabled={savingUpdate}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="flex-1 bg-gradient-brand text-primary-foreground" disabled={savingUpdate || !novoStatus}>
-                {savingUpdate ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</> : "Confirmar Atualização"}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ChamadoModal
+        chamado={selected}
+        onClose={() => setSelected(null)}
+        onUpdated={fetchData}
+      />
     </div>
   );
 };
 
+// ─── Stat card ────────────────────────────────────────────────────────────────
 const Stat = ({ icon: Icon, label, value, tone }: { icon: any; label: string; value: number | string; tone: string }) => (
   <Card className="glass-card rounded-2xl">
     <CardContent className="p-4 flex items-center gap-3">
@@ -372,28 +293,113 @@ const Stat = ({ icon: Icon, label, value, tone }: { icon: any; label: string; va
   </Card>
 );
 
-const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose: () => void }) => {
+// ─── Unified Chamado Modal (details + history + update) ───────────────────────
+const ChamadoModal = ({
+  chamado,
+  onClose,
+  onUpdated,
+}: {
+  chamado: Chamado | null;
+  onClose: () => void;
+  onUpdated: () => void;
+}) => {
   const { toast } = useToast();
+  const [atualizacoes, setAtualizacoes] = useState<any[]>([]);
+  const [loadingHist, setLoadingHist] = useState(false);
+  const [novoStatus, setNovoStatus] = useState("");
+  const [respostaAdmin, setRespostaAdmin] = useState("");
+  const [adminNome, setAdminNome] = useState("Admin");
+  const [savingUpdate, setSavingUpdate] = useState(false);
+
+  useEffect(() => {
+    if (!chamado) { setAtualizacoes([]); return; }
+    setNovoStatus(chamado.status || "Recebido");
+    setRespostaAdmin(chamado.resposta_admin || "");
+    setAdminNome("Admin");
+    (async () => {
+      setLoadingHist(true);
+      try {
+        const res = await fetch(
+          `${SUPABASE_URL}/rest/v1/atualizacoes_chamado?protocolo=eq.${encodeURIComponent(chamado.protocolo || "")}&select=*&order=created_at.asc`,
+          { headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}` } }
+        );
+        if (res.ok) setAtualizacoes((await res.json()) ?? []);
+      } catch {
+        // silent — history is supplementary
+      } finally {
+        setLoadingHist(false);
+      }
+    })();
+  }, [chamado?.protocolo]);
+
+  const salvarAtualizacao = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chamado || !novoStatus) return;
+    setSavingUpdate(true);
+    try {
+      const res = await fetch(WEBHOOK_ATUALIZAR, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          protocolo: chamado.protocolo,
+          novo_status: novoStatus,
+          resposta_admin: respostaAdmin,
+          admin_nome: adminNome,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.erro || `HTTP ${res.status}`);
+      }
+      toast({ title: "Chamado atualizado!", description: "Cliente notificado por email." });
+      onClose();
+      onUpdated();
+    } catch (err: any) {
+      toast({ title: "Erro ao atualizar", description: err.message || "Tente novamente.", variant: "destructive" });
+    } finally {
+      setSavingUpdate(false);
+    }
+  };
+
   if (!chamado) return null;
+
   const escal = chamado.requer_escalonamento === true;
   const tags = (chamado.tags || "").split(",").map((s) => s.trim()).filter(Boolean);
+
   const copy = () => {
     if (chamado.protocolo) {
       navigator.clipboard.writeText(chamado.protocolo);
       toast({ title: "Protocolo copiado!" });
     }
   };
+
+  const timelineIcon = (tipo: string) => {
+    if (tipo === "criacao") return <Ticket className="h-3.5 w-3.5 text-blue-400" />;
+    if (tipo === "atualizacao_admin") return <CheckCircle2 className="h-3.5 w-3.5 text-violet-400" />;
+    if (tipo === "mensagem_cliente") return <MessageSquare className="h-3.5 w-3.5 text-green-400" />;
+    return <Clock className="h-3.5 w-3.5 text-muted-foreground" />;
+  };
+
+  const timelineDotCls = (tipo: string) => {
+    if (tipo === "criacao") return "border-blue-400 bg-blue-400/10";
+    if (tipo === "atualizacao_admin") return "border-violet-400 bg-violet-400/10";
+    if (tipo === "mensagem_cliente") return "border-green-400 bg-green-400/10";
+    return "border-border bg-muted";
+  };
+
   return (
     <Dialog open={!!chamado} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center justify-between gap-2">
-            <span>Detalhes do Chamado</span>
-            <Button variant="ghost" size="icon" onClick={onClose} className="h-8 w-8"><X className="h-4 w-4" /></Button>
+          <DialogTitle className="flex items-center gap-2 text-base">
+            <Eye className="h-4 w-4 text-primary" />
+            Detalhes do Chamado
+            <span className="font-mono text-sm text-primary">{chamado.protocolo}</span>
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 pb-2">
+          {/* Identificação */}
           <Section title="Identificação">
             <button onClick={copy} className="text-left p-3 rounded-lg bg-secondary/60 border border-border hover:border-primary/40 group w-full">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1 flex items-center justify-between">
@@ -403,26 +409,33 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
             </button>
             <Field label="Data/Hora de abertura" value={chamado.data_hora_br} />
             <div>
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Status</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Status atual</p>
               {chamado.status ? <Badge className={statusCls(chamado.status)}>{chamado.status}</Badge> : "—"}
             </div>
           </Section>
 
+          {/* Solicitante */}
           <Section title="Solicitante">
             <Field label="Nome" value={chamado.nome} />
             <Field label="E-mail" value={chamado.email} />
             <Field label="Empresa" value={chamado.empresa} />
           </Section>
 
+          {/* Solicitação Original */}
           <Section title="Solicitação Original">
             <Field label="Tipo" value={chamado.tipo_solicitacao} />
             <Field label="Urgência informada" value={chamado.urgencia} />
             <div className="md:col-span-2">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Descrição</p>
-              <textarea readOnly value={chamado.descricao || ""} className="w-full min-h-[100px] max-h-[200px] rounded-lg border border-border bg-muted/30 p-3 text-sm resize-none" />
+              <textarea
+                readOnly
+                value={chamado.descricao || ""}
+                className="w-full min-h-[80px] max-h-[160px] rounded-lg border border-border bg-muted/30 p-3 text-sm resize-none"
+              />
             </div>
           </Section>
 
+          {/* Análise da IA */}
           <Section title="Análise da IA">
             <Field label="Categoria" value={chamado.categoria_ia} />
             <Field label="Complexidade" value={chamado.complexidade_estimada} />
@@ -440,7 +453,9 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
               <div className="md:col-span-2">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1.5">Tags</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {tags.map((t, i) => <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-secondary border border-border">{t}</span>)}
+                  {tags.map((t, i) => (
+                    <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-secondary border border-border">{t}</span>
+                  ))}
                 </div>
               </div>
             )}
@@ -457,21 +472,29 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
             )}
           </Section>
 
-          <Section title="Ação e Mensagem (Interno)">
-            {chamado.acao_recomendada && (
-              <div className="md:col-span-2 p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-500/10 dark:border-green-500/30">
-                <p className="text-[10px] uppercase tracking-widest text-green-700 dark:text-green-300 mb-1 flex items-center gap-1.5"><Sparkles className="h-3 w-3" /> Ação recomendada</p>
-                <p className="text-sm whitespace-pre-wrap">{chamado.acao_recomendada}</p>
-              </div>
-            )}
-            {chamado.mensagem_ia && (
-              <div className="md:col-span-2 p-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-500/10 dark:border-yellow-500/30">
-                <p className="text-[10px] uppercase tracking-widest text-yellow-700 dark:text-yellow-300 mb-1 flex items-center gap-1.5"><Clock className="h-3 w-3" /> Mensagem ao cliente</p>
-                <p className="text-sm whitespace-pre-wrap">{chamado.mensagem_ia}</p>
-              </div>
-            )}
-          </Section>
+          {/* Análise Interna (ação recomendada + mensagem IA) */}
+          {(chamado.acao_recomendada || chamado.mensagem_ia) && (
+            <Section title="Análise Interna (IA)">
+              {chamado.acao_recomendada && (
+                <div className="md:col-span-2 p-3 rounded-lg border border-green-200 bg-green-50 dark:bg-green-500/10 dark:border-green-500/30">
+                  <p className="text-[10px] uppercase tracking-widest text-green-700 dark:text-green-300 mb-1 flex items-center gap-1.5">
+                    <Sparkles className="h-3 w-3" /> Ação recomendada
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap">{chamado.acao_recomendada}</p>
+                </div>
+              )}
+              {chamado.mensagem_ia && (
+                <div className="md:col-span-2 p-3 rounded-lg border border-yellow-200 bg-yellow-50 dark:bg-yellow-500/10 dark:border-yellow-500/30">
+                  <p className="text-[10px] uppercase tracking-widest text-yellow-700 dark:text-yellow-300 mb-1 flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" /> Mensagem ao cliente (gerada pela IA)
+                  </p>
+                  <p className="text-sm whitespace-pre-wrap">{chamado.mensagem_ia}</p>
+                </div>
+              )}
+            </Section>
+          )}
 
+          {/* Resposta Admin Registrada */}
           {chamado.resposta_admin && (
             <Section title="Resposta Admin Registrada">
               <div className="md:col-span-2 p-3 rounded-lg border border-violet-200 bg-violet-50 dark:bg-violet-500/10 dark:border-violet-500/30">
@@ -480,13 +503,93 @@ const DetailsDialog = ({ chamado, onClose }: { chamado: Chamado | null; onClose:
             </Section>
           )}
 
-          <Button onClick={onClose} variant="outline" className="w-full">Fechar</Button>
+          {/* Histórico de Atualizações */}
+          <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 pb-2 border-b border-border/60 flex items-center gap-1.5">
+              <History className="h-3.5 w-3.5" /> Histórico de Atualizações
+            </h3>
+            {loadingHist ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                <Loader2 className="h-4 w-4 animate-spin" /> Carregando histórico...
+              </div>
+            ) : atualizacoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma atualização registrada ainda.</p>
+            ) : (
+              <div className="relative space-y-0">
+                <div className="absolute left-[15px] top-2 bottom-2 w-px bg-border/60" />
+                {atualizacoes.map((a, i) => (
+                  <div key={a.id || i} className="relative flex gap-3 pb-4 last:pb-0">
+                    <div className={`relative z-10 flex-shrink-0 h-8 w-8 rounded-full border-2 flex items-center justify-center ${timelineDotCls(a.tipo)}`}>
+                      {timelineIcon(a.tipo)}
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <p className="text-sm font-semibold leading-snug">{a.titulo || "Atualização"}</p>
+                        <p className="text-[10px] text-muted-foreground whitespace-nowrap">{formatDate(a.created_at)}</p>
+                      </div>
+                      {a.mensagem && <p className="text-sm text-foreground/70 leading-relaxed">{a.mensagem}</p>}
+                      <div className="flex items-center gap-2 mt-1">
+                        {a.status_novo && <Badge className={statusCls(a.status_novo)}>{a.status_novo}</Badge>}
+                        {a.autor && <span className="text-[10px] text-muted-foreground">por {a.autor}</span>}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Atualizar Chamado */}
+          <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-primary mb-3 pb-2 border-b border-primary/20">
+              Atualizar Chamado
+            </h3>
+            <form onSubmit={salvarAtualizacao} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Novo Status *</Label>
+                <Select value={novoStatus} onValueChange={setNovoStatus} required>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_LIST.map((s) => (
+                      <SelectItem key={s} value={s}>{s}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Resposta para o Cliente</Label>
+                <Textarea
+                  value={respostaAdmin}
+                  onChange={(e) => setRespostaAdmin(e.target.value)}
+                  placeholder="Mensagem para o cliente (enviada por email e exibida no portal do cliente)..."
+                  rows={3}
+                  className="resize-none"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seu Nome</Label>
+                <Input value={adminNome} onChange={(e) => setAdminNome(e.target.value)} placeholder="Nome do responsável" />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-gradient-brand text-primary-foreground"
+                disabled={savingUpdate || !novoStatus}
+              >
+                {savingUpdate
+                  ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Salvando...</>
+                  : "Confirmar Atualização"}
+              </Button>
+            </form>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
   );
 };
 
+// ─── Shared sub-components ────────────────────────────────────────────────────
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
     <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3 pb-2 border-b border-border/60">{title}</h3>
